@@ -1,0 +1,136 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI';
+}
+
+body{
+    background:#f5f7fb;
+}
+
+.container{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.card{
+
+    width:400px;
+
+    background:white;
+
+    padding:40px;
+
+    border-radius:20px;
+
+    box-shadow:
+    0 10px 25px rgba(0,0,0,.15);
+}
+
+.card h1{
+
+    color:#004481;
+
+    margin-bottom:20px;
+}
+
+input{
+
+    width:100%;
+
+    padding:15px;
+
+    margin-top:15px;
+
+    border:1px solid #ddd;
+
+    border-radius:10px;
+}
+
+button{
+
+    width:100%;
+
+    padding:15px;
+
+    margin-top:20px;
+
+    border:none;
+
+    background:#004481;
+
+    color:white;
+
+    border-radius:10px;
+
+    cursor:pointer;
+}
+
+button:hover{
+    background:#1464A5;
+}
+
+.sidebar{
+
+    width:250px;
+
+    height:100vh;
+
+    background:#072146;
+
+    color:white;
+
+    padding:20px;
+
+    position:fixed;
+}
+
+.main{
+
+    margin-left:270px;
+
+    padding:30px;
+}
+
+.saldo{
+
+    background:linear-gradient(
+    135deg,
+    #004481,
+    #1464A5);
+
+    color:white;
+
+    padding:30px;
+
+    border-radius:20px;
+}
+
+.formulario{
+
+    margin-top:25px;
+
+    background:white;
+
+    padding:25px;
+
+    border-radius:15px;
+}
+
+.movimiento{
+
+    background:white;
+
+    margin-top:15px;
+
+    padding:15px;
+
+    border-radius:10px;
+
+    display:flex;
+
+    justify-content:space-between;
+}
