@@ -12,7 +12,7 @@ CREATE TABLE usuarios(
 
     password VARCHAR(255) NOT NULL,
 
-    foto_perfil VARCHAR(255) DEFAULT 'default.png',
+    foto_perfil MEDIUMBLOB,
 
     biometrico BOOLEAN DEFAULT FALSE,
 
