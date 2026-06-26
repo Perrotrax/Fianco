@@ -71,6 +71,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->send_long_data(3, $foto);
         }
         if ($stmt->execute()) {
+            $newUserId = $conn->insert_id;
+            
+            // Inicializar categorías custom por defecto
+            $default_cats = ['Comida', 'Transporte', 'Entretenimiento', 'Servicios', 'Hogar', 'Otros'];
+            foreach ($default_cats as $cat) {
+                $c_stmt = $conn->prepare("INSERT IGNORE INTO categorias_custom (id_usuario, nombre, limite_mensual) VALUES (?, ?, 0.00)");
+                if ($c_stmt) {
+                    $c_stmt->bind_param("is", $newUserId, $cat);
+                    $c_stmt->execute();
+                    $c_stmt->close();
+                }
+            }
+
             $response['success'] = true;
             $response['message'] = 'Usuario registrado correctamente.';
         } else {

@@ -63,7 +63,7 @@ if (!$expectedChallenge) { $response['message'] = 'No challenge en sesión.'; ec
 // and that a challenge was previously generated. This is NOT a cryptographic verification
 // but provides a compatibility layer while keeping the WebAuthn UX.
 
-$clientData = json_decode(base64_decode($clientDataJSON), true);
+$clientData = json_decode($clientDataJSON, true);
 if (!$clientData) { $response['message'] = 'clientData inválido.'; echo json_encode($response); exit; }
 
 $gotChallenge = isset($clientData['challenge']) ? $clientData['challenge'] : null;

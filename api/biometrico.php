@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($resultado->num_rows > 0) {
                 $usuario = $resultado->fetch_assoc();
-                if (hash_equals($usuario['token_biometrico'], $token)) {
+                if (!empty($usuario['token_biometrico']) && hash_equals($usuario['token_biometrico'], $token)) {
                     $_SESSION['id_usuario'] = $usuario['id_usuario'];
                     $_SESSION['nombre']     = $usuario['nombre'];
                     $_SESSION['foto']       = $usuario['foto_perfil'];

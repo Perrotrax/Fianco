@@ -160,6 +160,10 @@ if (isset($_SESSION['id_usuario'])) {
             outline: none;
         }
 
+        input[type="password"] {
+            padding-right: 48px;
+        }
+
         input::placeholder {
             color: rgba(232, 213, 192, 0.35);
         }

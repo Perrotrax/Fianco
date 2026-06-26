@@ -302,6 +302,8 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 20px rgba(212, 175, 55, 0.05);
             animation: modalIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
             color: var(--text-primary);
+            max-height: 90vh;
+            overflow-y: auto;
         }
         
         @keyframes modalIn { 
@@ -1369,8 +1371,9 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             const desc = document.getElementById('ticketDesc').value.trim();
             const monto = parseFloat(document.getElementById('ticketMonto').value);
             const cat = document.getElementById('ticketCategoria').value;
-            
             if (!desc || isNaN(monto)) return showToast("Faltan datos del ticket");
+
+            if (!verificarLimitePresupuesto(cat, monto)) return;
 
             const reqTime = performance.now();
             const response = await fetch("api/add_gasto.php", {
@@ -2500,6 +2503,32 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             if (el) el.style.display = 'none';
         }
 
+        function verificarLimitePresupuesto(categoria, nuevoMonto, excludeGastoId = null) {
+            const catLimit = categoriasCustomData.find(c => c.nombre === categoria);
+            if (catLimit && parseFloat(catLimit.limite_mensual) > 0) {
+                const limit = parseFloat(catLimit.limite_mensual);
+                let spent = 0;
+                const thisMonth = new Date().toISOString().slice(0, 7);
+                
+                gastosData.forEach(g => {
+                    if (g.id_gasto !== excludeGastoId && g.categoria === categoria && g.fecha && g.fecha.slice(0, 7) === thisMonth && g.estado !== 'Rechazado') {
+                        spent += parseFloat(g.monto);
+                    }
+                });
+
+                if (spent + nuevoMonto > limit) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Has excedido el presupuesto',
+                        text: 'El monto excede el presupuesto límite establecido para la categoría ' + categoria + '.',
+                        confirmButtonColor: '#d4af37'
+                    });
+                    return false;
+                }
+            }
+            return true;
+        }
+
         async function guardarEdicionGasto() {
             const id = parseInt(document.getElementById('editGastoId').value);
             const desc = document.getElementById('editDesc').value.trim();
@@ -2511,6 +2540,8 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             const viaje = document.getElementById('editViaje').value;
             
             if (!desc || isNaN(monto) || monto <= 0) return showToast('Completa los campos correctamente');
+
+            if (!verificarLimitePresupuesto(cat, monto, id)) return;
 
             const res = await fetch('api/update_gasto.php', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2535,6 +2566,8 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             const pago = document.getElementById('gastoMetodoPago').value;
 
             if(!desc || isNaN(val) || val <= 0) return showToast("Por favor, llena los campos correctamente.");
+
+            if (!verificarLimitePresupuesto(cat, val)) return;
 
             const reqTime = performance.now();
             const response = await fetch("api/add_gasto.php", {
