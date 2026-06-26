@@ -40,12 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($resultado->num_rows > 0) {
             $usuario = $resultado->fetch_assoc();
             if (password_verify($password, $usuario['password'])) {
+                // Iniciar sesión directamente — la biometría es opcional,
+                // no bloquea el acceso con contraseña.
                 $_SESSION['id_usuario'] = $usuario['id_usuario'];
-                $_SESSION['nombre'] = $usuario['nombre'];
-                $_SESSION['foto'] = $usuario['foto_perfil'];
-                
-                $response['success'] = true;
-                $response['message'] = 'Inicio de sesión exitoso.';
+                $_SESSION['nombre']     = $usuario['nombre'];
+                $_SESSION['foto']       = $usuario['foto_perfil'];
+
+                $response['success']            = true;
+                $response['biometrics_required'] = false;
+                $response['message']            = 'Inicio de sesion exitoso.';
+
             } else {
                 $response['message'] = 'Contraseña incorrecta.';
             }

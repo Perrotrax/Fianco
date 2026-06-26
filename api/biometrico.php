@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'register') {
         if (!isset($_SESSION['id_usuario'])) {
-            $response['message'] = 'Debes iniciar sesión para configurar la biometría.';
+            $response['message'] = 'Debes iniciar sesion para configurar la biometria.';
             echo json_encode($response);
             exit;
         }
@@ -34,7 +34,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($enable) {
             $token = bin2hex(random_bytes(32));
-
             $sql = "UPDATE usuarios SET biometrico = 1, token_biometrico = ? WHERE id_usuario = ?";
             $stmt = $conn->prepare($sql);
             if ($stmt) {
@@ -42,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($stmt->execute()) {
                     $response['success'] = true;
                     $response['token'] = $token;
-                    $response['message'] = 'Biometría activada correctamente.';
+                    $response['message'] = 'Biometria activada correctamente.';
                 } else {
                     $response['message'] = 'Error al actualizar la base de datos.';
                 }
@@ -57,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param("i", $userId);
                 if ($stmt->execute()) {
                     $response['success'] = true;
-                    $response['message'] = 'Biometría desactivada correctamente.';
+                    $response['message'] = 'Biometria desactivada correctamente.';
                 } else {
                     $response['message'] = 'Error al actualizar la base de datos.';
                 }
@@ -66,12 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $response['message'] = 'Error al preparar la consulta.';
             }
         }
+
     } elseif ($action === 'login') {
         $correo = isset($data['correo']) ? trim($data['correo']) : '';
-        $token = isset($data['token']) ? trim($data['token']) : '';
+        $token  = isset($data['token'])  ? trim($data['token'])  : '';
 
         if (empty($correo) || empty($token)) {
-            $response['message'] = 'Correo y token biométrico requeridos.';
+            $response['message'] = 'Correo y token biometrico requeridos.';
             echo json_encode($response);
             exit;
         }
@@ -85,29 +85,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($resultado->num_rows > 0) {
                 $usuario = $resultado->fetch_assoc();
-                
-                if (hash_equals($usuario['token_biometrico'], $token)) {
+                if (!empty($usuario['token_biometrico']) && hash_equals($usuario['token_biometrico'], $token)) {
                     $_SESSION['id_usuario'] = $usuario['id_usuario'];
-                    $_SESSION['nombre'] = $usuario['nombre'];
-                    $_SESSION['foto'] = $usuario['foto_perfil'];
+                    $_SESSION['nombre']     = $usuario['nombre'];
+                    $_SESSION['foto']       = $usuario['foto_perfil'];
+
+                    unset($_SESSION['temp_id_usuario'], $_SESSION['temp_nombre'],
+                          $_SESSION['temp_foto'],       $_SESSION['temp_correo']);
 
                     $response['success'] = true;
-                    $response['message'] = 'Inicio de sesión biométrico exitoso.';
+                    $response['message'] = 'Inicio de sesion biometrico exitoso.';
                 } else {
-                    $response['message'] = 'Verificación biométrica fallida.';
+                    $response['message'] = 'Verificacion biometrica fallida.';
                 }
             } else {
-                $response['message'] = 'La biometría no está habilitada para esta cuenta o el correo es incorrecto.';
+                $response['message'] = 'La biometria no esta habilitada para esta cuenta.';
             }
             $stmt->close();
         } else {
-            $response['message'] = 'Error de conexión de base de datos.';
+            $response['message'] = 'Error de conexion de base de datos.';
         }
+
+    } elseif ($action === 'login_temp_session') {
+        // ---------------------------------------------------------------
+        // Fallback seguro: completa el login usando la sesion temporal
+        // establecida despues de verificar la contrasena en login.php.
+        // Permite acceder cuando WebAuthn falla (localhost/HTTP) o cuando
+        // no hay token biometrico guardado en localStorage del dispositivo.
+        // ---------------------------------------------------------------
+        $correo = isset($data['correo']) ? trim($data['correo']) : '';
+
+        if (
+            isset($_SESSION['temp_id_usuario']) &&
+            isset($_SESSION['temp_correo']) &&
+            strtolower($_SESSION['temp_correo']) === strtolower($correo)
+        ) {
+            $_SESSION['id_usuario'] = $_SESSION['temp_id_usuario'];
+            $_SESSION['nombre']     = $_SESSION['temp_nombre'] ?? '';
+            $_SESSION['foto']       = $_SESSION['temp_foto']   ?? null;
+
+            unset($_SESSION['temp_id_usuario'], $_SESSION['temp_nombre'],
+                  $_SESSION['temp_foto'],       $_SESSION['temp_correo']);
+
+            $response['success'] = true;
+            $response['message'] = 'Sesion iniciada correctamente.';
+        } else {
+            $response['message'] = 'Sesion temporal expirada. Por favor vuelve a ingresar tu contrasena.';
+        }
+
     } else {
-        $response['message'] = 'Acción inválida.';
+        $response['message'] = 'Accion invalida.';
     }
 } else {
-    $response['message'] = 'Método no permitido.';
+    $response['message'] = 'Metodo no permitido.';
 }
 
 echo json_encode($response);
