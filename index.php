@@ -22,7 +22,7 @@ if (isset($_SESSION['id_usuario'])) {
     
     <!-- SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <link rel="stylesheet" href="css/sweetalert.css">
+    <link rel="stylesheet" href="css/sweetalert.css?v=<?= filemtime('css/sweetalert.css') ?>">
     
     <style>
         :root {

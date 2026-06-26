@@ -29,8 +29,8 @@ $userEmail = htmlspecialchars($currentUser['correo']);
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-  <link rel="stylesheet" href="css/sweetalert.css">
-  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="../css/sweetalert.css?v=<?= filemtime(__DIR__ . '/../css/sweetalert.css') ?>">
+  <link rel="stylesheet" href="css/admin.css?v=<?= filemtime(__DIR__ . '/css/admin.css') ?>">
 </head>
 <body>
 
@@ -188,12 +188,12 @@ window.PANEL_USER_EMAIL = <?= json_encode($currentUser['correo']) ?>;
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-<script src="js/app.js"></script>
+<script src="js/app.js?v=<?= filemtime(__DIR__ . '/js/app.js') ?>"></script>
 <?php
 $jsFile = 'js/' . $page . '.js';
 if (file_exists(__DIR__ . '/' . $jsFile)):
 ?>
-<script src="<?= $jsFile ?>"></script>
+<script src="<?= $jsFile ?>?v=<?= filemtime(__DIR__ . '/' . $jsFile) ?>"></script>
 <?php endif; ?>
 
 </body>

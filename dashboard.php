@@ -49,9 +49,8 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
     <!-- SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     
-    <!-- Estilos Modernos -->
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/sweetalert.css">
+    <link rel="stylesheet" href="css/style.css?v=<?= filemtime('css/style.css') ?>">
+    <link rel="stylesheet" href="css/sweetalert.css?v=<?= filemtime('css/sweetalert.css') ?>">
     
     <!-- JS Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/bootstrap.bundle.min.js"></script>
