@@ -1,8 +1,8 @@
-CREATE DATABASE gestor_gastos;
+CREATE DATABASE IF NOT EXISTS gestor_gastos;
 
 USE gestor_gastos;
 
-CREATE TABLE usuarios(
+CREATE TABLE IF NOT EXISTS usuarios(
 
     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
 
@@ -18,11 +18,13 @@ CREATE TABLE usuarios(
 
     token_biometrico VARCHAR(255) DEFAULT NULL,
 
+    presupuesto DECIMAL(10, 2) DEFAULT 0.00,
+
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 );
 
-CREATE TABLE gastos(
+CREATE TABLE IF NOT EXISTS gastos(
     id_gasto INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario INT NOT NULL,
     descripcion VARCHAR(255) NOT NULL,

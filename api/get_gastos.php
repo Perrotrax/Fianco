@@ -11,7 +11,13 @@ require_once __DIR__ . '/conexion.php';
 
 $userId = $_SESSION['id_usuario'];
 
-$sql = "SELECT id_gasto, descripcion, monto, categoria, fecha FROM gastos WHERE id_usuario = ? ORDER BY fecha DESC";
+$sql = "SELECT g.id_gasto, g.descripcion, g.monto, g.categoria, g.estado, g.metodo_pago, g.xml_invoice, g.fecha, 
+               g.id_proyecto, p.nombre as proyecto_nombre, g.id_viaje, v.destino as viaje_destino 
+        FROM gastos g 
+        LEFT JOIN proyectos p ON g.id_proyecto = p.id_proyecto 
+        LEFT JOIN viajes v ON g.id_viaje = v.id_viaje 
+        WHERE g.id_usuario = ? 
+        ORDER BY g.fecha DESC";
 $stmt = $conn->prepare($sql);
 
 if ($stmt) {
@@ -22,8 +28,25 @@ if ($stmt) {
     $gastos = [];
     $total = 0.0;
     while ($row = $result->fetch_assoc()) {
-        $gastos[] = $row;
-        $total += (float)$row['monto'];
+        $gastos[] = [
+            'id_gasto' => intval($row['id_gasto']),
+            'descripcion' => $row['descripcion'],
+            'monto' => floatval($row['monto']),
+            'categoria' => $row['categoria'],
+            'estado' => $row['estado'],
+            'metodo_pago' => $row['metodo_pago'],
+            'xml_invoice' => $row['xml_invoice'],
+            'fecha' => $row['fecha'],
+            'id_proyecto' => $row['id_proyecto'] ? intval($row['id_proyecto']) : null,
+            'proyecto_nombre' => $row['proyecto_nombre'] ?? 'General',
+            'id_viaje' => $row['id_viaje'] ? intval($row['id_viaje']) : null,
+            'viaje_destino' => $row['viaje_destino'] ?? 'General'
+        ];
+        
+        // Sumamos a total gastado solo los gastos que no han sido rechazados
+        if ($row['estado'] !== 'Rechazado') {
+            $total += (float)$row['monto'];
+        }
     }
     
     echo json_encode([

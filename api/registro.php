@@ -43,22 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $password_hashed = password_hash($password, PASSWORD_DEFAULT);
-    $foto = "default.png";
+    $foto = null;
 
     if (isset($_FILES['foto']) && $_FILES['foto']['error'] == 0) {
-        $targetDir = "../uploads/perfiles/";
-        if (!is_dir($targetDir)) {
-            mkdir($targetDir, 0755, true);
-        }
-
         $extension = pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION);
         $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
         if (in_array(strtolower($extension), $allowed)) {
-            $nombreFoto = time() . "_" . uniqid() . "." . $extension;
-            if (move_uploaded_file($_FILES['foto']['tmp_name'], $targetDir . $nombreFoto)) {
-                $foto = $nombreFoto;
-            } else {
-                $response['message'] = 'No se pudo subir la foto de perfil.';
+            $foto = file_get_contents($_FILES['foto']['tmp_name']);
+            if ($foto === false) {
+                $response['message'] = 'No se pudo leer la foto de perfil.';
                 echo json_encode($response);
                 exit;
             }
@@ -72,7 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sql = "INSERT INTO usuarios (nombre, correo, password, foto_perfil) VALUES (?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     if ($stmt) {
-        $stmt->bind_param("ssss", $nombre, $correo, $password_hashed, $foto);
+        $null = NULL;
+        $stmt->bind_param("sssb", $nombre, $correo, $password_hashed, $null);
+        if ($foto !== null) {
+            $stmt->send_long_data(3, $foto);
+        }
         if ($stmt->execute()) {
             $response['success'] = true;
             $response['message'] = 'Usuario registrado correctamente.';
