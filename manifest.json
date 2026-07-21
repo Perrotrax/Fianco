@@ -1,0 +1,49 @@
+{
+  "name": "Fianco Pro - Gestor de Gastos",
+  "short_name": "Fianco Pro",
+  "description": "Control de gastos, presupuestos, escáner de tickets e inteligencia financiera.",
+  "start_url": "dashboard.php",
+  "display": "standalone",
+  "background_color": "#0a0a0c",
+  "theme_color": "#d4af37",
+  "orientation": "any",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Escanear Ticket",
+      "url": "dashboard.php?action=scan",
+      "description": "Escanear ticket de gasto inmediatamente"
+    },
+    {
+      "name": "Nuevo Gasto",
+      "url": "dashboard.php?action=new",
+      "description": "Registrar nuevo gasto"
+    }
+  ]
+}

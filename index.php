@@ -10,7 +10,16 @@ if (isset($_SESSION['id_usuario'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Gastos - Acceso Inteligente</title>
+    <title>Fianco Pro - Acceso Inteligente</title>
+    <!-- PWA METAS & FAVICON -->
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0c">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fianco Pro">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
     <meta name="description" content="Controla tus finanzas de manera inteligente, registra gastos y accede de forma segura con biometría integrada.">
     <meta name="keywords" content="gestor de gastos, control financiero, finanzas personales, acceso biométrico, ahorro inteligente">
     <meta name="author" content="Fianco">
@@ -636,9 +645,10 @@ if (isset($_SESSION['id_usuario'])) {
 
         <!-- LOGIN FORM -->
         <section id="loginPanel" class="form-panel active">
-            <header class="form-header">
-                <h2>Iniciar Sesión</h2>
-                <p class="subtitle">Ingresa a tu administrador de gastos</p>
+            <header class="form-header" style="text-align:center;">
+                <img src="assets/logo.png" alt="Fianco Logo" style="width:72px; height:72px; border-radius:18px; object-fit:cover; border:1px solid rgba(212,175,55,0.4); box-shadow:0 8px 24px rgba(0,0,0,0.6); margin-bottom:12px;">
+                <h2 style="font-size:1.5rem;">Fianco PRO</h2>
+                <p class="subtitle">Ingresa a tu administrador de gastos inteligente</p>
             </header>
 
             <div class="form-group">

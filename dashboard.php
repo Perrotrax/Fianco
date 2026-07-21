@@ -39,6 +39,15 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestor de Gastos - Dashboard Pro</title>
+    <!-- PWA & MOBILE METAS -->
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0c">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fianco Pro">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
@@ -247,6 +256,60 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             opacity: 1; 
         }
 
+        /* Preset budget buttons */
+        .btn-preset-budget {
+            background: rgba(212, 175, 55, 0.08);
+            border: 1px solid rgba(212, 175, 55, 0.25);
+            color: var(--primary);
+            padding: 8px 6px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-preset-budget:hover {
+            background: rgba(212, 175, 55, 0.25);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        /* Ticket Dropzone & Laser Scanner */
+        .ticket-dropzone {
+            border: 2px dashed rgba(212, 175, 55, 0.35);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.25);
+            transition: all 0.25s ease;
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+        }
+        .ticket-dropzone:hover, .ticket-dropzone.drag-over {
+            border-color: var(--primary);
+            background: rgba(212, 175, 55, 0.08);
+        }
+        .scanner-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+        .scanner-laser {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, rgba(212,175,55,0) 0%, rgba(212,175,55,1) 50%, rgba(212,175,55,0) 100%);
+            box-shadow: 0 0 15px #D4AF37, 0 0 8px #FFD700;
+            animation: scanLaser 1.4s infinite ease-in-out alternate;
+            display: none;
+            z-index: 10;
+        }
+        @keyframes scanLaser {
+            0% { top: 0%; }
+            100% { top: 95%; }
+        }
+
         /* Floating Action Camera for Mobile */
         .fab-camera {
             display: none;
@@ -375,51 +438,172 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
 
 <body>
     <!-- CAMERA INPUT HIDDEN -->
-    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleTicketPhoto(event)">
+    <input type="file" id="cameraInput" accept="image/*" style="display:none;" onchange="handleTicketPhoto(event)">
 
     <!-- TICKET MODAL -->
-    <div id="ticketModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 style="margin-bottom:20px; font-size:1.4rem;">🧾 Registrar Ticket</h3>
-            <img id="ticketPreview" src="" style="width:100%; max-height:180px; object-fit:cover; border-radius:12px; margin-bottom:20px; display:none; border:1px solid var(--border);">
-            
-            <div id="ocrLoader" style="display:none; text-align:center; padding: 20px; color:var(--text-muted);">
-                <div style="font-size:2rem; margin-bottom:10px; animation: spin 1s infinite linear;">⚙️</div>
-                Analizando datos del ticket...
+    <div id="ticketModal" class="modal-overlay" onclick="cerrarModalTicket()">
+        <div class="modal-content" style="max-width:520px; max-height:92vh; overflow-y:auto;" onclick="event.stopPropagation()">
+            <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size:1.3rem; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                    🧾 Comprobante Escaneado
+                </h3>
+                <button type="button" onclick="cerrarModalTicket()" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; padding:0;">✕</button>
             </div>
-            
-            <div id="ticketFormInputs" style="display:none;">
-                <div class="form-group">
-                    <label>Descripción Extraída</label>
-                    <input type="text" id="ticketDesc" placeholder="Ej. Almuerzo de trabajo">
+
+            <!-- DROPZONE & SCANNER CONTAINER -->
+            <div id="ticketDropzone" class="ticket-dropzone" onclick="document.getElementById('cameraInput').click()" ondragover="handleDragOverTicket(event)" ondragleave="handleDragLeaveTicket(event)" ondrop="handleDropTicket(event)">
+                <div id="dropzonePrompt" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:24px 10px; text-align:center;">
+                    <div style="font-size:2.4rem;">📷</div>
+                    <div style="font-size:0.92rem; font-weight:600; color:var(--text-main);">Cargar Ticket de Gasto</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);">Haz clic para seleccionar, arrastra una foto o pega con <kbd style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; color:#FFD700;">Ctrl + V</kbd></div>
                 </div>
-                <div class="form-group">
-                    <label>Importe Extraído ($)</label>
-                    <input type="number" id="ticketMonto" step="0.01" placeholder="Monto detectado...">
-                </div>
-                <div class="form-group">
-                    <label>Categoría</label>
-                    <select id="ticketCategoria">
-                        <option value="Comida">Comida</option>
-                        <option value="Transporte">Transporte</option>
-                        <option value="Servicios">Servicios</option>
-                        <option value="Hogar">Alojamiento/Hogar</option>
-                        <option value="Otros">Otros</option>
-                    </select>
+
+                <div id="scannerContainer" class="scanner-container" style="display:none; width:100%; position:relative;">
+                    <div id="scannerLaser" class="scanner-laser"></div>
+                    <img id="ticketPreview" src="" style="width:100%; max-height:220px; object-fit:contain; border-radius:10px; border:1px solid var(--border); background:rgba(0,0,0,0.4); transition: transform 0.3s ease;">
+                    <div style="position:absolute; right:8px; top:8px; display:flex; gap:6px;">
+                        <button type="button" onclick="event.stopPropagation(); rotarTicketPreview();" style="background:rgba(0,0,0,0.7); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:4px 8px; border-radius:6px; font-size:0.75rem; cursor:pointer;" title="Rotar Imagen">🔄 Rotar</button>
+                        <button type="button" onclick="event.stopPropagation(); document.getElementById('cameraInput').click();" style="background:rgba(0,0,0,0.7); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:4px 8px; border-radius:6px; font-size:0.75rem; cursor:pointer;">📷 Cambiar</button>
+                    </div>
                 </div>
             </div>
             
-            <div style="display:flex; gap:10px; margin-top:25px;">
-                <button class="btn-cancel" onclick="cerrarModalTicket()">Cancelar</button>
-                <button class="btn-add" id="btnGuardarTicket" style="flex:1; display:none;" onclick="guardarTicketFromModal()">Guardar Gasto</button>
+            <div id="ocrLoader" style="display:none; text-align:center; padding: 18px; color:var(--text-muted);">
+                <div style="font-size:1.8rem; margin-bottom:6px; display:inline-block; animation: spin 1s infinite linear;">⚙️</div>
+                <div style="font-weight:600; font-size:0.95rem; color:var(--primary);">Extrayendo información del comprobante...</div>
+                <div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">Analizando comercio, montos e importe automáticamente</div>
+            </div>
+
+            <!-- TARJETA DE DATOS DEL TICKET -->
+            <div id="ticketFormInputs" style="display:none; margin-top:16px;">
+                
+                <!-- HEADER SUMMARY BADGE -->
+                <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(0, 0, 0, 0.35) 100%); border: 1px solid rgba(212, 175, 55, 0.25); border-radius: 12px; padding: 14px; margin-bottom: 14px; text-align: center;">
+                    <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); font-weight:600; margin-bottom:4px;">Importe Total Detectado</div>
+                    <div id="ticketMontoDisplay" style="font-size:2rem; font-weight:800; color:var(--primary); font-family:'Outfit', sans-serif;">$0.00</div>
+                    <div id="ticketVendorDisplay" style="font-size:0.9rem; font-weight:600; color:var(--text-main); margin-top:2px;">🏬 Ticket Escaneado</div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div class="form-group">
+                        <label>Establecimiento / Comercio</label>
+                        <input type="text" id="ticketComercio" placeholder="Ej. OXXO, Pemex, Walmart..." oninput="actualizarDisplayTicket()">
+                    </div>
+                    <div class="form-group">
+                        <label>Importe ($ MXN)</label>
+                        <input type="number" id="ticketMonto" step="0.01" placeholder="0.00" oninput="actualizarDisplayTicket()">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Descripción del Gasto</label>
+                    <input type="text" id="ticketDesc" placeholder="Ej. Consumo de alimentos / Gasolina">
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select id="ticketCategoria">
+                            <option value="Comida">🍔 Comida</option>
+                            <option value="Transporte">⛽ Transporte</option>
+                            <option value="Servicios">⚡ Servicios</option>
+                            <option value="Hogar">🏠 Alojamiento/Hogar</option>
+                            <option value="Otros">📦 Otros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Método de Pago</label>
+                        <select id="ticketMetodoPago">
+                            <option value="Efectivo">💵 Efectivo</option>
+                            <option value="Tarjeta">💳 Tarjeta de Crédito/Débito</option>
+                            <option value="Transferencia">🏦 Transferencia</option>
+                            <option value="Wallet">🪙 Wallet (Saldo)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div class="form-group">
+                        <label>Proyecto / Viaje</label>
+                        <select id="ticketProyectoViaje">
+                            <option value="">Ninguno (Gasto Personal)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado del Registro</label>
+                        <select id="ticketEstado">
+                            <option value="Aprobado" selected>⚡ Aprobado (Al gasto directamente)</option>
+                            <option value="Pendiente">⏳ Pendiente de revisión</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ACCORDION TEXTO EXTRAÍDO OCR -->
+                <div style="margin-top:14px; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px;">
+                    <div onclick="toggleTextoOCRModal()" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--text-muted);">
+                        <span>📄 Texto Completo Extraído por OCR</span>
+                        <span id="ocrToggleArrow">▼</span>
+                    </div>
+                    <pre id="ticketTextoOCR" style="display:none; margin-top:8px; font-family:'Fira Code', monospace; font-size:0.75rem; color:#d4cfb4; white-space:pre-wrap; max-height:120px; overflow-y:auto; background:rgba(0,0,0,0.4); padding:8px; border-radius:6px;"></pre>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-cancel" onclick="cerrarModalTicket()" style="flex:1;">Cancelar</button>
+                <button class="btn-add" id="btnGuardarTicket" style="flex:1.5; display:none; font-weight:700; background:linear-gradient(135deg, #f3d075 0%, #d4af37 100%); color:#060608;" onclick="guardarTicketFromModal()">⚡ Guardar Gasto Directamente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRESUPUESTO MODAL -->
+    <div id="presupuestoModal" class="modal-overlay" onclick="cerrarModalPresupuesto()">
+        <div class="modal-content" style="max-width:440px;" onclick="event.stopPropagation()">
+            <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 10px;">
+                <h3 style="margin: 0; font-size:1.3rem; color: var(--primary); display:flex; align-items:center; gap:8px;">
+                    💵 Presupuesto Mensual
+                </h3>
+                <button type="button" onclick="cerrarModalPresupuesto()" style="background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; padding:0;">✕</button>
+            </div>
+            
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:15px; line-height:1.4;">
+                Define tu límite de presupuesto mensual para controlar tus finanzas en tiempo real y recibir alertas automáticas.
+            </p>
+
+            <div class="form-group" style="margin-bottom:15px;">
+                <label style="display:block; font-size:0.82rem; font-weight:600; color:var(--text-muted); margin-bottom:6px;">Monto del Presupuesto ($ MXN)</label>
+                <div style="position:relative;">
+                    <span style="position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:1.1rem; color:var(--primary); font-weight:700;">$</span>
+                    <input type="number" id="modalPresupuestoInput" step="100" min="0" placeholder="0.00" style="width:100%; padding:12px 14px 12px 32px; font-size:1.15rem; font-weight:700; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:10px; color:#fff;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-muted); margin-bottom:8px;">Montos Sugeridos Rápidos:</label>
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+                    <button type="button" onclick="seleccionarPresetPresupuesto(3000)" class="btn-preset-budget">$3,000</button>
+                    <button type="button" onclick="seleccionarPresetPresupuesto(5000)" class="btn-preset-budget">$5,000</button>
+                    <button type="button" onclick="seleccionarPresetPresupuesto(10000)" class="btn-preset-budget">$10,000</button>
+                    <button type="button" onclick="seleccionarPresetPresupuesto(15000)" class="btn-preset-budget">$15,000</button>
+                    <button type="button" onclick="seleccionarPresetPresupuesto(20000)" class="btn-preset-budget">$20,000</button>
+                    <button type="button" onclick="seleccionarPresetPresupuesto(50000)" class="btn-preset-budget">$50,000</button>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button type="button" class="btn-cancel" onclick="cerrarModalPresupuesto()" style="flex:1;">Cancelar</button>
+                <button type="button" class="btn-add" onclick="guardarPresupuestoModal()" style="flex:1; font-weight:700;">Guardar Presupuesto</button>
             </div>
         </div>
     </div>
 
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            Fianco<span style="color:rgba(255,255,255,0.5);font-size:0.5em;">PRO</span>
+        <div class="sidebar-header" style="display:flex; align-items:center; gap:12px;">
+            <img src="assets/logo.png" alt="Logo" style="width:42px; height:42px; border-radius:10px; object-fit:cover; border:1px solid rgba(212,175,55,0.4); box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+            <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.1;">
+                <span style="font-weight:700; font-size:1.15rem; color:var(--text-main);">Fianco</span>
+                <span style="color:var(--primary); font-size:0.68rem; letter-spacing:1px; font-weight:800; text-transform:uppercase;">PRO APP</span>
+            </div>
         </div>
         <div class="menu-list-container">
             
@@ -460,7 +644,8 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                 <div style="font-weight: 600; font-size: 1.1rem; font-family: monospace;" class="dev-only">/api/v1/dashboard</div>
             </div>
             <div class="header-right">
-                <button class="btn-add normal-only" style="height: 36px; font-size: 0.85rem;" onclick="document.getElementById('cameraInput').click()">📸 Escanear Ticket</button>
+                <button id="pwaInstallBtn" class="btn-add normal-only" style="display:none; height: 36px; font-size: 0.85rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff;" onclick="instalarPWA()">📲 Instalar App</button>
+                <button class="btn-add normal-only" style="height: 36px; font-size: 0.85rem;" onclick="abrirModalTicket()">📸 Escanear Ticket</button>
                 <div class="dev-switch-wrapper">
                     <span>Modo Dev</span>
                     <label class="switch">
@@ -1184,7 +1369,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             </div>
             <div style="color: var(--text-primary);">
                 <div class="mb-2 text-center">
-                    <button type="button" class="btn-add w-100" style="height: 36px; font-size:0.82rem;" onclick="document.getElementById('cameraInput').click(); cerrarGastoModal();">
+                    <button type="button" class="btn-add w-100" style="height: 36px; font-size:0.82rem;" onclick="cerrarGastoModal(); abrirModalTicket();">
                         📸 Escanear Ticket / Factura
                     </button>
                     <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">O introduce los datos manualmente abajo</div>
@@ -1266,15 +1451,25 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
 
     <!-- VER RECIBO MODAL -->
     <div id="verReciboModal" class="modal-overlay" onclick="cerrarVerReciboModal()">
-        <div class="modal-content" style="max-width:480px; text-align:center;" onclick="event.stopPropagation()">
+        <div class="modal-content" style="max-width:500px; text-align:center;" onclick="event.stopPropagation()">
             <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 8px;">
-                <h3 id="verReciboTitulo" style="margin: 0; font-size:1.15rem; color: var(--primary);">🧾 Ticket de Gasto</h3>
+                <h3 id="verReciboTitulo" style="margin: 0; font-size:1.2rem; color: var(--primary); font-weight:700;">🧾 Ticket de Gasto</h3>
                 <button type="button" onclick="cerrarVerReciboModal()" style="background: none; border: none; color: #FFF; font-size: 1.2rem; cursor: pointer; padding:0;">✕</button>
             </div>
-            <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:center; min-height: 200px; max-height:450px; overflow:hidden; margin-bottom: 15px;">
-                <img id="verReciboImagen" src="" style="max-width:100%; max-height:400px; object-fit:contain; border-radius:8px;">
+
+            <div id="verReciboDetalles" style="text-align:left; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:0.85rem; display:none;">
+                <!-- Detalles insertados dinámicamente -->
             </div>
-            <div style="display:flex; justify-content:flex-end;">
+
+            <div style="position:relative; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:center; min-height: 200px; max-height:420px; overflow:hidden; margin-bottom: 15px;">
+                <img id="verReciboImagen" src="" style="max-width:100%; max-height:380px; object-fit:contain; border-radius:8px; transition: transform 0.3s ease;">
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-cancel" onclick="rotarReciboImagen()" style="padding: 6px 12px; font-size: 0.82rem;" title="Rotar Imagen">🔄 Rotar</button>
+                    <button class="btn-cancel" onclick="descargarReciboImagen()" style="padding: 6px 12px; font-size: 0.82rem;" title="Descargar Comprobante">⬇️ Descargar</button>
+                </div>
                 <button class="btn-cancel" onclick="cerrarVerReciboModal()" style="padding: 8px 18px; font-size: 0.85rem;">Cerrar</button>
             </div>
         </div>
@@ -1350,211 +1545,598 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             if(window.innerWidth <= 768) sidebar.classList.remove('open');
         }
 
-        // Camera Logic
-        function extractAmountFromOCR(text) {
-            const lines = text.toLowerCase().split('\n');
-            let possibleAmounts = [];
+        // TICKET DRAG & DROP & CLIPBOARD PASTE
+        document.addEventListener('paste', function(e) {
+            if (e.clipboardData && e.clipboardData.items) {
+                const items = e.clipboardData.items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        processTicketFile(file);
+                        showToast("📋 Imagen pegada desde el portapapeles");
+                        break;
+                    }
+                }
+            }
+        });
 
-            // Keywords indicative of total amounts
-            const keywords = ['total', 'importe', 'monto', 'pago', 'neto', 'suma', 'total a pagar', 'total mxn', 'total usd'];
+        function handleDragOverTicket(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropzone = document.getElementById('ticketDropzone');
+            if (dropzone) dropzone.classList.add('drag-over');
+        }
+
+        function handleDragLeaveTicket(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropzone = document.getElementById('ticketDropzone');
+            if (dropzone) dropzone.classList.remove('drag-over');
+        }
+
+        function handleDropTicket(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropzone = document.getElementById('ticketDropzone');
+            if (dropzone) dropzone.classList.remove('drag-over');
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                processTicketFile(e.dataTransfer.files[0]);
+            }
+        }
+
+        // IMAGE PRE-PROCESSING FOR HIGH ACCURACY OCR
+        function preprocessImageForOCR(fileOrBase64, callback) {
+            if (!fileOrBase64) return callback(fileOrBase64);
+            const img = new Image();
+            img.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    let width = img.width;
+                    let height = img.height;
+                    const targetWidth = 1400;
+                    if (width < targetWidth) {
+                        height = Math.round((targetWidth / width) * height);
+                        width = targetWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const imgData = ctx.getImageData(0, 0, width, height);
+                    const data = imgData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                        const factor = 1.35;
+                        const v = Math.min(255, Math.max(0, (gray - 128) * factor + 128));
+                        data[i] = v;
+                        data[i + 1] = v;
+                        data[i + 2] = v;
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                    callback(canvas.toDataURL('image/png'));
+                } catch(e) {
+                    console.warn("Canvas preprocessing fallback:", e);
+                    callback(fileOrBase64);
+                }
+            };
+            img.onerror = function() {
+                callback(fileOrBase64);
+            };
+            img.src = fileOrBase64;
+        }
+
+        function extractVendorAndCategoryFromOCR(text) {
+            const textLower = text.toLowerCase();
             
-            // Loop lines to search for matches with keywords
-            for (let line of lines) {
-                for (let kw of keywords) {
-                    if (line.includes(kw)) {
-                        // Look for numbers with decimal parts (e.g. 10.00, 1,250.50, 1.250,50, 399)
-                        // A digit followed optionally by dots/commas and 2 decimals
-                        const matches = line.match(/(?:\$\s*)?(\d+(?:[.,]\d{3})*(?:[.,]\d{2}))(?!\d)/g);
-                        if (matches) {
-                            matches.forEach(m => {
-                                // Strip "$" symbols, spaces, commas if they are thousands separator
-                                let clean = m.replace('$', '').trim();
-                                if (clean.includes(',') && clean.includes('.')) {
-                                    // format: 1,234.56
-                                    if (clean.indexOf(',') < clean.indexOf('.')) {
-                                        clean = clean.replace(/,/g, '');
-                                    } else {
-                                        // format: 1.234,56
-                                        clean = clean.replace(/\./g, '').replace(',', '.');
-                                    }
-                                } else if (clean.includes(',')) {
-                                    // check if it is comma as decimal separator: 125,50
-                                    if (clean.split(',')[1].length === 2) {
-                                        clean = clean.replace(',', '.');
-                                    } else {
-                                        clean = clean.replace(/,/g, '');
-                                    }
-                                }
-                                const val = parseFloat(clean);
-                                if (!isNaN(val) && val > 0) {
-                                    possibleAmounts.push({ val: val, priority: (kw === 'total' || kw === 'total a pagar') ? 3 : (kw === 'importe' || kw === 'monto' ? 2 : 1) });
-                                }
-                            });
-                        }
+            const vendorDictionary = [
+                { keywords: ['zara', 'inditex', 'pull & bear', 'pull and bear', 'bershka', 'stradivarius', 'h&m', 'h & m', 'mango', 'massimo dutti', 'suburbia', 'liverpool', 'palacio de hierro', 'sears', 'coppel', 'c&a'], vendor: 'ZARA', cat: 'Otros' },
+
+                { keywords: ['oxxo', '0xx0', 'oxx0', 'o.x.x.o'], vendor: 'OXXO', cat: 'Comida' },
+                { keywords: ['7-eleven', 'seven eleven', '7 eleven', 'seveeleven', '7-11'], vendor: '7-Eleven', cat: 'Comida' },
+                { keywords: ['circle k', 'circlek', 'extra', 'kiosko', 'am pm', 'ampm'], vendor: 'Tienda de Conveniencia', cat: 'Comida' },
+                { keywords: ['walmart', 'wal-mart', 'supercenter'], vendor: 'Walmart', cat: 'Comida' },
+                { keywords: ['bodega aurrera', 'aurrera', 'mi bodega'], vendor: 'Bodega Aurrerá', cat: 'Comida' },
+                { keywords: ['soriana', 'hipermart', 'soriana super', 'soriana express'], vendor: 'Soriana', cat: 'Comida' },
+                { keywords: ['chedraui', 'selecto chedraui', 'super chedraui'], vendor: 'Chedraui', cat: 'Comida' },
+                { keywords: ['costco', 'costco wholesale'], vendor: 'Costco', cat: 'Comida' },
+                { keywords: ['sams club', 'sam\'s club', 'sams'], vendor: 'Sam\'s Club', cat: 'Comida' },
+                { keywords: ['la comer', 'city market', 'fresko', 'sumesa'], vendor: 'La Comer / City Market', cat: 'Comida' },
+                { keywords: ['superama', 'h-e-b', 'heb', 'super san francisco', 'ley', 'casa ley'], vendor: 'Supermercado', cat: 'Comida' },
+                
+                { keywords: ['pemex', 'servicio pemex', 'gasolinera pemex'], vendor: 'Pemex', cat: 'Transporte' },
+                { keywords: ['shell', 'shell gas'], vendor: 'Shell', cat: 'Transporte' },
+                { keywords: ['bp', 'british petroleum'], vendor: 'BP Gasolinera', cat: 'Transporte' },
+                { keywords: ['g500', 'g-500'], vendor: 'G500', cat: 'Transporte' },
+                { keywords: ['mobil', 'exxonmobil'], vendor: 'Mobil', cat: 'Transporte' },
+                { keywords: ['chevron', 'texaco'], vendor: 'Chevron', cat: 'Transporte' },
+                { keywords: ['oxxo gas', 'oxxogas'], vendor: 'OXXO Gas', cat: 'Transporte' },
+                { keywords: ['totalenergies', 'total gas', 'hidrosina', 'petro 7', 'petro-7', 'rendichicas'], vendor: 'Gasolinera / Combustible', cat: 'Transporte' },
+                { keywords: ['combustible', 'magna', 'premium', 'diesel', 'gasolina', 'litros', 'dispensador'], vendor: 'Gasolinera', cat: 'Transporte' },
+
+                { keywords: ['mcdonald', 'mc donald', 'macdonald'], vendor: 'McDonald\'s', cat: 'Comida' },
+                { keywords: ['burger king', 'bk'], vendor: 'Burger King', cat: 'Comida' },
+                { keywords: ['starbucks', 'starbucks coffee'], vendor: 'Starbucks', cat: 'Comida' },
+                { keywords: ['domino', 'dominos pizza', 'domino\'s'], vendor: 'Domino\'s Pizza', cat: 'Comida' },
+                { keywords: ['little caesars', 'little caesar'], vendor: 'Little Caesars', cat: 'Comida' },
+                { keywords: ['subway'], vendor: 'Subway', cat: 'Comida' },
+                { keywords: ['kfc', 'kentucky fried chicken'], vendor: 'KFC', cat: 'Comida' },
+                { keywords: ['vips', 'sanborns', 'toks', 'dennys', 'ihop', 'chilis', 'applebees'], vendor: 'Restaurante', cat: 'Comida' },
+                { keywords: ['carls jr', 'carl\'s jr'], vendor: 'Carl\'s Jr.', cat: 'Comida' },
+                { keywords: ['tacos', 'taqueria', 'fondita', 'cocina economica', 'mariscos', 'pizzeria', 'sushi', 'cafeteria', 'restaurante', 'alimentos', 'comedor'], vendor: 'Restaurante / Comida', cat: 'Comida' },
+
+                { keywords: ['uber', 'uber trip', 'uber eats'], vendor: 'Uber', cat: 'Transporte' },
+                { keywords: ['didi', 'didi ride', 'didi food'], vendor: 'DiDi', cat: 'Transporte' },
+                { keywords: ['cabify', 'beat', 'indrive', 'taxi'], vendor: 'Taxi / Rideshare', cat: 'Transporte' },
+                { keywords: ['capufe', 'caseta', 'peaje', 'autopista', 'estacionamiento', 'parquimetro', 'valet'], vendor: 'Caseta / Estacionamiento', cat: 'Transporte' },
+
+                { keywords: ['farmacia del ahorro', 'farmacias del ahorro'], vendor: 'Farmacias del Ahorro', cat: 'Servicios' },
+                { keywords: ['farmacia guadalajara', 'farmacias guadalajara'], vendor: 'Farmacias Guadalajara', cat: 'Servicios' },
+                { keywords: ['farmacias similares', 'similares', 'dr simi'], vendor: 'Farmacias Similares', cat: 'Servicios' },
+                { keywords: ['farmacia', 'botica'], vendor: 'Farmacia', cat: 'Servicios' },
+
+                { keywords: ['telmex', 'cfe', 'comision federal', 'izzi', 'totalplay', 'megacable', 'siapa', 'sacmex', 'naturgy'], vendor: 'Servicios Públicos', cat: 'Servicios' },
+                { keywords: ['hotel', 'motel', 'hostal', 'airbnb', 'booking', 'hospedaje', 'posada', 'resort'], vendor: 'Hotel / Hospedaje', cat: 'Hogar' }
+            ];
+
+            for (let item of vendorDictionary) {
+                for (let kw of item.keywords) {
+                    if (textLower.includes(kw)) {
+                        return { vendor: item.vendor, cat: item.cat };
                     }
                 }
             }
 
-            if (possibleAmounts.length > 0) {
-                // Sort by priority desc, then by value desc (usually total is the highest value in those lines)
-                possibleAmounts.sort((a, b) => b.priority - a.priority || b.val - a.val);
-                return possibleAmounts[0].val;
+            const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+            let vendorCandidate = "";
+
+            for (let l of rawLines) {
+                const lower = l.toLowerCase();
+                if (lower.includes('rfc:') || lower.includes('tel:') || lower.includes('fecha:') || lower.includes('www.') || lower.includes('.com') || lower.includes('calle') || lower.includes('colonia') || lower.includes('sucursal')) continue;
+                if (l.match(/^\d+$/) || l.match(/^\$?\s*\d+[\.,]\d{2}$/) || l.match(/\d{2,4}[-\/\.]\d{2}[-\/\.]\d{2,4}/)) continue;
+                
+                if (l.length >= 3 && l.length <= 45) {
+                    vendorCandidate = l.replace(/[^a-zA-Z0-9&áéíóúÁÉÍÓÚñÑ\s\.\-]/g, '').trim();
+                    if (vendorCandidate.length >= 3) break;
+                }
             }
 
-            // General fallback: if no keyword line matched, extract all numbers and return the highest value (which is typically the total)
-            const allMatches = text.match(/(?:\$\s*)?(\d+(?:[.,]\d{3})*(?:[.,]\d{2}))(?!\d)/g);
-            if (allMatches) {
-                let maxVal = 0;
-                allMatches.forEach(m => {
-                    let clean = m.replace('$', '').trim();
-                    if (clean.includes(',') && clean.includes('.')) {
-                        if (clean.indexOf(',') < clean.indexOf('.')) {
-                            clean = clean.replace(/,/g, '');
-                        } else {
-                            clean = clean.replace(/\./g, '').replace(',', '.');
+            if (vendorCandidate) {
+                return { vendor: vendorCandidate, cat: 'Comida' };
+            }
+
+            return { vendor: 'Ticket Escaneado', cat: 'Comida' };
+        }
+
+        function extractAmountFromOCR(text) {
+            const lines = text.split('\n');
+            let candidates = [];
+
+            const keywordsHigh = ['total:', 'total a pagar', 'monto total', 'importe total', 'pago total', 'gran total', 'total mxn', 'total eur', 'total usd', 'total €', 'total'];
+            const keywordsMid = ['subtotal', 'sutotal', 'importe', 'monto', 'pago', 'neto', 'suma', 'cobrado', 'efectivo', 'tarjeta', 'pagado'];
+
+            lines.forEach((rawLine, index) => {
+                let line = rawLine.toLowerCase();
+
+                // Normalización de O por 0 en números
+                let normalizedLine = line.replace(/(\d)[oO](\d)/g, '$10$2').replace(/(\d)[oO]/g, '$10').replace(/[oO](\d)/g, '0$1');
+
+                // Regex flexible para importes enteros o decimales con comas/puntos
+                const priceMatches = normalizedLine.match(/(?:[\$€]\s*)?(\d{1,6}(?:[.,]\d{1,3})?)(?:[\$€]\s*)?(?!\d)/g);
+
+                if (priceMatches) {
+                    priceMatches.forEach(matchStr => {
+                        let clean = matchStr.replace(/[^0-9.,]/g, '').trim();
+                        let hadDecimal = clean.includes('.') || clean.includes(',');
+                        
+                        if (clean.includes(',') && clean.includes('.')) {
+                            if (clean.indexOf(',') < clean.indexOf('.')) {
+                                clean = clean.replace(/,/g, '');
+                            } else {
+                                clean = clean.replace(/\./g, '').replace(',', '.');
+                            }
+                        } else if (clean.includes(',')) {
+                            const parts = clean.split(',');
+                            if (parts[1] && parts[1].length <= 2) {
+                                clean = clean.replace(',', '.');
+                            } else {
+                                clean = clean.replace(/,/g, '');
+                            }
                         }
-                    } else if (clean.includes(',')) {
-                        if (clean.split(',')[1].length === 2) {
-                            clean = clean.replace(',', '.');
-                        } else {
-                            clean = clean.replace(/,/g, '');
+                        
+                        let num = parseFloat(clean);
+
+                        if (!isNaN(num) && num > 0 && num < 200000) {
+                            if ((num === 2024 || num === 2025 || num === 2026) && !line.includes('total')) return;
+                            if (!hadDecimal && num > 3000 && !line.includes('total') && !line.includes('importe') && !line.includes('pago')) return;
+
+                            let priority = 1;
+                            for (let kw of keywordsHigh) {
+                                if (line.includes(kw)) { priority = 10; break; }
+                            }
+                            if (priority === 1) {
+                                for (let kw of keywordsMid) {
+                                    if (line.includes(kw)) { priority = 5; break; }
+                                }
+                            }
+
+                            if (hadDecimal) priority += 2.0;
+                            const linePosBonus = (index / lines.length) * 1.5;
+                            candidates.push({ val: num, priority: priority + linePosBonus, hadDecimal: hadDecimal, raw: matchStr });
                         }
+                    });
+                }
+            });
+
+            if (candidates.length > 0) {
+                candidates.sort((a, b) => {
+                    if (Math.abs(b.priority - a.priority) > 0.2) {
+                        return b.priority - a.priority;
                     }
-                    const val = parseFloat(clean);
-                    if (!isNaN(val) && val > maxVal) {
-                        maxVal = val;
-                    }
+                    if (a.hadDecimal && !b.hadDecimal) return -1;
+                    if (!a.hadDecimal && b.hadDecimal) return 1;
+                    if (a.val <= 2000 && b.val > 2000) return -1;
+                    if (a.val > 2000 && b.val <= 2000) return 1;
+                    return b.val - a.val;
                 });
-                if (maxVal > 0) return maxVal;
+                return candidates[0].val;
             }
 
             return null;
         }
 
-        // Camera Logic
-        function handleTicketPhoto(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    currentTicketPhotoBase64 = e.target.result;
-                    document.getElementById('ticketPreview').src = e.target.result;
-                    document.getElementById('ticketPreview').style.display = 'block';
-                    document.getElementById('ticketModal').style.display = 'flex';
-                    
-                    document.getElementById('ocrLoader').style.display = 'block';
-                    document.getElementById('ticketFormInputs').style.display = 'none';
-                    document.getElementById('btnGuardarTicket').style.display = 'none';
-                    
-                    const fallbackOCR = () => {
-                        document.getElementById('ocrLoader').style.display = 'none';
-                        document.getElementById('ticketFormInputs').style.display = 'block';
-                        document.getElementById('btnGuardarTicket').style.display = 'block';
-                        
-                        document.getElementById('ticketDesc').value = "Ticket Escaneado";
-                        document.getElementById('ticketMonto').value = (Math.random() * 50 + 10).toFixed(2);
-                        showToast("⚠️ Falló OCR. Importe aleatorio sugerido.");
-                    };
+        function processTicketFile(file) {
+            if (!file) return;
+            const fileName = file.name || '';
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentTicketPhotoBase64 = e.target.result;
+                
+                document.getElementById('ticketModal').style.display = 'flex';
+                document.getElementById('dropzonePrompt').style.display = 'none';
+                
+                const preview = document.getElementById('ticketPreview');
+                preview.src = e.target.result;
+                
+                const scannerContainer = document.getElementById('scannerContainer');
+                scannerContainer.style.display = 'block';
 
-                    if (typeof Tesseract !== 'undefined') {
-                        Tesseract.recognize(
-                            e.target.result,
-                            'spa+eng',
-                            { logger: m => console.log("Tesseract:", m.status, (m.progress * 100).toFixed(0) + "%") }
-                        ).then(({ data: { text } }) => {
-                            console.log("OCR Texto Extraído:\n", text);
-                            document.getElementById('ocrLoader').style.display = 'none';
-                            document.getElementById('ticketFormInputs').style.display = 'block';
-                            document.getElementById('btnGuardarTicket').style.display = 'block';
-                            
-                            // Detectar descripción desde las primeras líneas no vacías
-                            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
-                            let detectedDesc = "Ticket Escaneado";
-                            if (lines.length > 0) {
-                                for (let l of lines) {
-                                    if (!l.match(/\d{2,4}[-\/\.]\d{2}[-\/\.]\d{2,4}/) && !l.match(/^\$?\s*\d+[\.,]\d{2}$/) && l.length < 50) {
-                                        detectedDesc = l.charAt(0).toUpperCase() + l.slice(1).toLowerCase();
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            const detectedMonto = extractAmountFromOCR(text);
-                            
-                            document.getElementById('ticketDesc').value = detectedDesc;
-                            if (detectedMonto !== null) {
-                                document.getElementById('ticketMonto').value = detectedMonto.toFixed(2);
-                                showToast("✅ Importe detectado: $" + detectedMonto.toFixed(2));
-                            } else {
-                                document.getElementById('ticketMonto').value = "";
-                                showToast("⚠️ No se detectó importe. Introdúcelo manualmente.");
-                            }
-                        }).catch(err => {
-                            console.error("Error en reconocimiento Tesseract:", err);
-                            fallbackOCR();
-                        });
-                    } else {
-                        console.warn("Tesseract no cargado.");
-                        fallbackOCR();
+                const laser = document.getElementById('scannerLaser');
+                if (laser) laser.style.display = 'block';
+
+                document.getElementById('ocrLoader').style.display = 'block';
+                document.getElementById('ticketFormInputs').style.display = 'none';
+                document.getElementById('btnGuardarTicket').style.display = 'none';
+
+                // Reset input values
+                document.getElementById('ticketMonto').value = "";
+                document.getElementById('ticketComercio').value = "";
+                document.getElementById('ticketDesc').value = "";
+                actualizarDisplayTicket();
+
+                popularOpcionesProyectoViajeTicket();
+
+                // Reset camera input so clicking again triggers onchange
+                const camInput = document.getElementById('cameraInput');
+                if (camInput) camInput.value = "";
+
+                let ocrDone = false;
+                const finishOCR = () => {
+                    if (ocrDone) return;
+                    ocrDone = true;
+                    if (laser) laser.style.display = 'none';
+                    document.getElementById('ocrLoader').style.display = 'none';
+                    document.getElementById('ticketFormInputs').style.display = 'block';
+                    document.getElementById('btnGuardarTicket').style.display = 'block';
+                };
+
+                // Fallback timer (3.5 seconds max)
+                const ocrTimeout = setTimeout(() => {
+                    finishOCR();
+                    if (!document.getElementById('ticketComercio').value) {
+                        document.getElementById('ticketComercio').value = "Ticket Escaneado";
+                        document.getElementById('ticketDesc').value = "Gasto con comprobante";
                     }
+                }, 3500);
+
+                // 1. Escaneo por API de Servidor (Nombre y Metadatos)
+                fetch('api/scan_ticket.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ filename: fileName, image: e.target.result })
+                }).then(r => r.json()).then(res => {
+                    if (res.success) {
+                        if (res.vendor && res.vendor !== 'Ticket Escaneado') {
+                            document.getElementById('ticketComercio').value = res.vendor;
+                            document.getElementById('ticketDesc').value = res.descripcion || `Consumo en ${res.vendor}`;
+                            if (res.categoria) document.getElementById('ticketCategoria').value = res.categoria;
+                        }
+                        if (res.monto && res.monto > 0) {
+                            document.getElementById('ticketMonto').value = res.monto.toFixed(2);
+                        }
+                        actualizarDisplayTicket();
+                    }
+                }).catch(err => console.warn("API scan notice:", err));
+
+                // 2. OCR Front-end con Tesseract directo en la imagen original
+                if (typeof Tesseract !== 'undefined') {
+                    Tesseract.recognize(
+                        e.target.result,
+                        'spa',
+                        { logger: m => console.log("Tesseract:", m.status, (m.progress * 100).toFixed(0) + "%") }
+                    ).then(({ data: { text } }) => {
+                        clearTimeout(ocrTimeout);
+                        console.log("OCR Texto Extraído:\n", text);
+                        
+                        const ocrTextEl = document.getElementById('ticketTextoOCR');
+                        if (ocrTextEl) ocrTextEl.innerText = text || "No se detectaron líneas de texto estructurado.";
+
+                        finishOCR();
+
+                        const vendorInfo = extractVendorAndCategoryFromOCR(text);
+                        const detectedMonto = extractAmountFromOCR(text);
+
+                        if (vendorInfo.vendor && vendorInfo.vendor !== 'Ticket Escaneado') {
+                            document.getElementById('ticketComercio').value = vendorInfo.vendor;
+                            document.getElementById('ticketDesc').value = `Consumo en ${vendorInfo.vendor}`;
+                            document.getElementById('ticketCategoria').value = vendorInfo.cat;
+                        }
+
+                        const textLow = text.toLowerCase();
+                        if (textLow.includes('tarjeta') || textLow.includes('credit') || textLow.includes('debito') || textLow.includes('visa') || textLow.includes('mastercard')) {
+                            document.getElementById('ticketMetodoPago').value = 'Tarjeta';
+                        } else if (textLow.includes('efectivo') || textLow.includes('cash')) {
+                            document.getElementById('ticketMetodoPago').value = 'Efectivo';
+                        }
+
+                        if (detectedMonto !== null && detectedMonto > 0) {
+                            document.getElementById('ticketMonto').value = detectedMonto.toFixed(2);
+                            showToast(`✅ Importe detectado: $${detectedMonto.toFixed(2)} (${vendorInfo.vendor})`);
+                        } else {
+                            const curMonto = document.getElementById('ticketMonto').value;
+                            if (curMonto) {
+                                showToast(`✅ Importe: $${curMonto} (${vendorInfo.vendor})`);
+                            } else {
+                                showToast(`ℹ️ Ingresa el monto si no fue detectado automáticamente.`);
+                            }
+                        }
+                        actualizarDisplayTicket();
+                    }).catch(err => {
+                        clearTimeout(ocrTimeout);
+                        console.error("Tesseract error:", err);
+                        finishOCR();
+                        if (!document.getElementById('ticketComercio').value) {
+                            document.getElementById('ticketComercio').value = "Ticket Escaneado";
+                            document.getElementById('ticketDesc').value = "Gasto con comprobante";
+                        }
+                        actualizarDisplayTicket();
+                    });
+                } else {
+                    clearTimeout(ocrTimeout);
+                    finishOCR();
+                    actualizarDisplayTicket();
                 }
-                reader.readAsDataURL(file);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function actualizarDisplayTicket() {
+            const comercio = document.getElementById('ticketComercio').value.trim();
+            const montoStr = document.getElementById('ticketMonto').value;
+            const monto = parseFloat(montoStr);
+
+            const vendorDisplay = document.getElementById('ticketVendorDisplay');
+            if (vendorDisplay) {
+                vendorDisplay.innerText = comercio ? `🏬 ${comercio}` : '🏬 Comprobante Escaneado';
+            }
+
+            const montoDisplay = document.getElementById('ticketMontoDisplay');
+            if (montoDisplay) {
+                montoDisplay.innerText = (!isNaN(monto) && monto > 0) 
+                    ? `$${monto.toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2})}` 
+                    : '$0.00';
+            }
+        }
+
+        function toggleTextoOCRModal() {
+            const textEl = document.getElementById('ticketTextoOCR');
+            const arrowEl = document.getElementById('ocrToggleArrow');
+            if (textEl) {
+                const isHidden = textEl.style.display === 'none';
+                textEl.style.display = isHidden ? 'block' : 'none';
+                if (arrowEl) arrowEl.innerText = isHidden ? '▲' : '▼';
+            }
+        }
+
+        let ticketPreviewRotation = 0;
+        function rotarTicketPreview() {
+            ticketPreviewRotation = (ticketPreviewRotation + 90) % 360;
+            const img = document.getElementById('ticketPreview');
+            if (img) img.style.transform = `rotate(${ticketPreviewRotation}deg)`;
+        }
+
+        function abrirModalTicket(autoPick = true) {
+            ticketPreviewRotation = 0;
+            const img = document.getElementById('ticketPreview');
+            if (img) img.style.transform = 'rotate(0deg)';
+            document.getElementById('ticketModal').style.display = 'flex';
+            document.getElementById('dropzonePrompt').style.display = 'flex';
+            document.getElementById('scannerContainer').style.display = 'none';
+            document.getElementById('ocrLoader').style.display = 'none';
+            document.getElementById('ticketFormInputs').style.display = 'none';
+            document.getElementById('btnGuardarTicket').style.display = 'none';
+
+            if (autoPick) {
+                setTimeout(() => {
+                    const camInput = document.getElementById('cameraInput');
+                    if (camInput) camInput.click();
+                }, 150);
+            }
+        }
+
+        function cerrarModalTicket() {
+            document.getElementById('ticketModal').style.display = 'none';
+            ticketPreviewRotation = 0;
+            const img = document.getElementById('ticketPreview');
+            if (img) img.style.transform = 'rotate(0deg)';
+            const camInput = document.getElementById('cameraInput');
+            if (camInput) camInput.value = "";
+        }
+
+        function popularOpcionesProyectoViajeTicket() {
+            const select = document.getElementById('ticketProyectoViaje');
+            if (!select) return;
+            select.innerHTML = '<option value="">Ninguno (Gasto Personal / General)</option>';
+
+            if (window.sidebarData) {
+                if (window.sidebarData.proyectos && window.sidebarData.proyectos.length > 0) {
+                    const groupP = document.createElement('optgroup');
+                    groupP.label = "📁 Proyectos";
+                    window.sidebarData.proyectos.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = `proyecto_${p.id_proyecto}`;
+                        opt.textContent = `Proyecto: ${p.nombre} (${p.codigo})`;
+                        groupP.appendChild(opt);
+                    });
+                    select.appendChild(groupP);
+                }
+                if (window.sidebarData.viajes && window.sidebarData.viajes.length > 0) {
+                    const groupV = document.createElement('optgroup');
+                    groupV.label = "✈️ Viajes / Viáticos";
+                    window.sidebarData.viajes.forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = `viaje_${v.id_viaje}`;
+                        opt.textContent = `Viaje: ${v.destino} (${v.fecha_inicio})`;
+                        groupV.appendChild(opt);
+                    });
+                    select.appendChild(groupV);
+                }
             }
         }
 
         function cerrarModalTicket() {
             document.getElementById('ticketModal').style.display = 'none';
             document.getElementById('cameraInput').value = "";
+            document.getElementById('dropzonePrompt').style.display = 'flex';
+            document.getElementById('scannerContainer').style.display = 'none';
+            const laser = document.getElementById('scannerLaser');
+            if (laser) laser.style.display = 'none';
             currentTicketPhotoBase64 = null;
         }
 
         async function guardarTicketFromModal() {
-            const desc = document.getElementById('ticketDesc').value.trim();
+            const comercio = document.getElementById('ticketComercio').value.trim();
+            let desc = document.getElementById('ticketDesc').value.trim();
             const monto = parseFloat(document.getElementById('ticketMonto').value);
             const cat = document.getElementById('ticketCategoria').value;
-            if (!desc || isNaN(monto)) return showToast("Faltan datos del ticket");
+            const metodoPago = document.getElementById('ticketMetodoPago').value;
+            const pvVal = document.getElementById('ticketProyectoViaje') ? document.getElementById('ticketProyectoViaje').value : '';
+            const estadoVal = document.getElementById('ticketEstado') ? document.getElementById('ticketEstado').value : 'Aprobado';
 
-            if (!verificarLimitePresupuesto(cat, monto)) return;
+            if (!desc && comercio) desc = `Gasto en ${comercio}`;
+            if (!desc) desc = "Ticket Registrado";
+            if (isNaN(monto) || monto <= 0) return showToast("⚠️ Ingresa un monto válido mayor a 0");
+
+            let id_proyecto = null;
+            let id_viaje = null;
+            if (pvVal && pvVal.startsWith('proyecto_')) id_proyecto = parseInt(pvVal.replace('proyecto_', ''));
+            if (pvVal && pvVal.startsWith('viaje_')) id_viaje = parseInt(pvVal.replace('viaje_', ''));
+
+            const payload = {
+                descripcion: desc,
+                monto: monto,
+                categoria: cat,
+                metodo_pago: metodoPago,
+                id_proyecto: id_proyecto,
+                id_viaje: id_viaje,
+                estado: estadoVal,
+                foto_recibo: currentTicketPhotoBase64
+            };
 
             const reqTime = performance.now();
-            const response = await fetch("api/add_gasto.php", {
-                method: "POST", headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({descripcion: desc, monto: monto, categoria: cat, metodo_pago: 'Efectivo', estado: 'Pendiente', foto_recibo: currentTicketPhotoBase64})
-            });
-            const res = await response.json();
-            if (res.success) {
-                cerrarModalTicket();
-                cargarGastos();
-                cargarSidebarYErpDatos();
-                switchTab('resumen');
-                showToast("Ticket registrado en revisión");
-                actualizarDevLogs(res, performance.now() - reqTime, "POST /api/add_gasto.php (Ticket)");
-            } else {
-                showToast(res.message || "Error al guardar el ticket");
+            try {
+                const response = await fetch("api/add_gasto.php", {
+                    method: "POST",
+                    headers: {"Content-Type":"application/json"},
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+                if (res.success) {
+                    cerrarModalTicket();
+                    if (typeof cargarGastos === 'function') cargarGastos();
+                    if (typeof cargarSidebarYErpDatos === 'function') cargarSidebarYErpDatos();
+                    if (typeof cargarEstadisticasAvanzadas === 'function') cargarEstadisticasAvanzadas();
+                    if (typeof switchTab === 'function') switchTab('resumen');
+                    showToast(estadoVal === 'Aprobado' ? `✅ Gasto de $${monto.toFixed(2)} registrado correctamente` : "✅ Ticket registrado en revisión");
+                    if (typeof actualizarDevLogs === 'function') actualizarDevLogs(res, performance.now() - reqTime, "POST /api/add_gasto.php (Ticket)");
+                } else {
+                    showToast("⚠️ " + (res.message || "Error al guardar el ticket"));
+                }
+            } catch(err) {
+                console.error("Error al guardar ticket:", err);
+                showToast("⚠️ Error de conexión al guardar el ticket");
             }
         }
+
+        let currentRotation = 0;
+        let currentVerReciboUrl = '';
 
         function verRecibo(id) {
             const g = gastosData.find(x => x.id_gasto === id);
             if (!g) return showToast("Gasto no encontrado");
             
             document.getElementById('verReciboTitulo').innerText = `🧾 Ticket: ${g.descripcion}`;
+            currentRotation = 0;
             
+            const detallesEl = document.getElementById('verReciboDetalles');
+            if (detallesEl) {
+                detallesEl.style.display = 'block';
+                detallesEl.innerHTML = `
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+                        <div><strong>Importe:</strong> <span style="color:var(--primary); font-weight:700;">$${g.monto.toFixed(2)}</span></div>
+                        <div><strong>Categoría:</strong> ${g.categoria}</div>
+                        <div><strong>Fecha:</strong> ${g.fecha || 'Reciente'}</div>
+                        <div><strong>Estado:</strong> <span style="color:${g.estado==='Aprobado'?'#34d399':g.estado==='Rechazado'?'#f87171':'#fbbf24'}">${g.estado}</span></div>
+                        <div><strong>Pago:</strong> ${g.metodo_pago || 'Efectivo'}</div>
+                    </div>
+                `;
+            }
+
             const imgEl = document.getElementById('verReciboImagen');
-            imgEl.src = ""; // Clear source first
-            imgEl.style.display = 'none'; // Hide while loading
+            imgEl.src = "";
+            imgEl.style.transform = `rotate(0deg)`;
+            imgEl.style.display = 'none';
             
-            // Set source to our safe endpoint
-            imgEl.src = `api/get_recibo.php?id=${id}`;
+            currentVerReciboUrl = `api/get_recibo.php?id=${id}`;
+            imgEl.src = currentVerReciboUrl;
             imgEl.onload = function() {
                 imgEl.style.display = 'block';
             };
             imgEl.onerror = function() {
-                showToast("Error al cargar la imagen del ticket");
+                showToast("⚠️ Error al cargar la imagen del ticket");
                 imgEl.style.display = 'none';
             };
             
             document.getElementById('verReciboModal').style.display = 'flex';
+        }
+
+        function rotarReciboImagen() {
+            currentRotation = (currentRotation + 90) % 360;
+            const imgEl = document.getElementById('verReciboImagen');
+            if (imgEl) imgEl.style.transform = `rotate(${currentRotation}deg)`;
+        }
+
+        function descargarReciboImagen() {
+            if (!currentVerReciboUrl) return;
+            const a = document.createElement('a');
+            a.href = currentVerReciboUrl;
+            a.download = `ticket_gasto.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
 
         function cerrarVerReciboModal() {
@@ -2779,23 +3361,79 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             }
         }
 
-        async function editarPresupuesto() {
-            const nuevo = prompt("Ingresa el nuevo presupuesto mensual:", totalBudget);
-            if(nuevo === null) return;
-            const val = parseFloat(nuevo);
-            if (isNaN(val) || val < 0) return alert("Presupuesto inválido");
+        function editarPresupuesto() {
+            abrirModalPresupuesto();
+        }
 
-            const reqTime = performance.now();
-            const response = await fetch("api/update_presupuesto.php", {
-                method: "POST", headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({presupuesto: val})
-            });
-            const res = await response.json();
-            if (res.success) {
-                totalBudget = val;
-                document.getElementById('display-presupuesto').innerText = '$' + val.toFixed(2);
-                showToast("Presupuesto mensual actualizado");
-                actualizarDevLogs(res, performance.now() - reqTime, "POST /api/update_presupuesto.php");
+        function abrirModalPresupuesto() {
+            const valInput = document.getElementById('modalPresupuestoInput');
+            if (valInput) {
+                valInput.value = (typeof totalBudget !== 'undefined' && totalBudget > 0) ? totalBudget : '';
+            }
+            const modal = document.getElementById('presupuestoModal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function cerrarModalPresupuesto() {
+            const modal = document.getElementById('presupuestoModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function seleccionarPresetPresupuesto(monto) {
+            const valInput = document.getElementById('modalPresupuestoInput');
+            if (valInput) valInput.value = monto;
+        }
+
+        async function guardarPresupuestoModal() {
+            const valInput = document.getElementById('modalPresupuestoInput');
+            const val = parseFloat(valInput.value);
+            if (isNaN(val) || val < 0) {
+                return showToast("⚠️ Ingresa un presupuesto válido (mayor o igual a 0).");
+            }
+
+            // 1. UPDATE LOCAL STATE IMMEDIATELY ("luego luego")
+            totalBudget = val;
+            const formatted = '$' + val.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            const gridVal = document.getElementById('grid-budget-val');
+            if (gridVal) gridVal.innerText = formatted;
+
+            const distVal = document.getElementById('distribution-budget-val');
+            if (distVal) distVal.innerText = formatted;
+
+            const displayPresupuesto = document.getElementById('display-presupuesto');
+            if (displayPresupuesto) displayPresupuesto.innerText = formatted;
+
+            // Recalcular KPIs localmente si están disponibles
+            if (typeof estadisticasData !== 'undefined' && estadisticasData) {
+                estadisticasData.presupuesto = val;
+                estadisticasData.pct_presupuesto = val > 0 
+                    ? Math.round(((estadisticasData.gasto_mes_actual || 0) / val) * 100 * 10) / 10 
+                    : 0;
+                actualizarKPIs(estadisticasData);
+            }
+
+            cerrarModalPresupuesto();
+            showToast("✅ Presupuesto actualizado correctamente");
+
+            // 2. SINCRONIZACIÓN ASÍNCRONA EN BACKGROUND
+            try {
+                const reqTime = performance.now();
+                const response = await fetch("api/update_presupuesto.php", {
+                    method: "POST", 
+                    headers: {"Content-Type":"application/json"},
+                    body: JSON.stringify({presupuesto: val})
+                });
+                const res = await response.json();
+                if (res.success) {
+                    actualizarDevLogs(res, performance.now() - reqTime, "POST /api/update_presupuesto.php");
+                    cargarEstadisticasAvanzadas();
+                    cargarSidebarYErpDatos();
+                } else {
+                    showToast("⚠️ " + (res.message || "No se pudo sincronizar el presupuesto"));
+                }
+            } catch(err) {
+                console.error("Error actualizando presupuesto:", err);
             }
         }
 
@@ -3444,6 +4082,39 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                     </div>
                 </div>
             `;
+        }
+
+        // PWA SERVICE WORKER & INSTALLATION LOGIC
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('pwaInstallBtn');
+            if (btn) btn.style.display = 'inline-flex';
+        });
+
+        function instalarPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showToast("🎉 ¡App instalada correctamente en tu dispositivo!");
+                    }
+                    deferredPrompt = null;
+                    const btn = document.getElementById('pwaInstallBtn');
+                    if (btn) btn.style.display = 'none';
+                });
+            } else {
+                showToast("ℹ️ Para instalar en iOS: presiona Compartir ➔ Agregar a Inicio");
+            }
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(reg => {
+                    console.log('PWA ServiceWorker registrado:', reg.scope);
+                }).catch(err => console.warn('PWA SW notice:', err));
+            });
         }
     </script>
 </body>

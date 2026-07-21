@@ -110,7 +110,15 @@ try {
     if (!$stmt->execute()) {
         throw new Exception("Error al guardar el gasto: " . $stmt->error);
     }
-    $stmt->close();
+    // Actualizar gastado en proyecto si el estado es Aprobado
+    if ($estado === 'Aprobado' && $id_proyecto !== null) {
+        $stmtP = $conn->prepare("UPDATE proyectos SET gastado = gastado + ? WHERE id_proyecto = ? AND id_usuario = ?");
+        if ($stmtP) {
+            $stmtP->bind_param("dii", $monto, $id_proyecto, $userId);
+            $stmtP->execute();
+            $stmtP->close();
+        }
+    }
 
     $conn->commit();
     api_json(['success' => true, 'message' => 'Gasto agregado correctamente.']);
