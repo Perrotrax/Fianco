@@ -1,4 +1,4 @@
-# 🎨 Gestor de Gastos - Diseño Moderno v2.0
+# 🎨 Fianco - Diseño Moderno v2.0
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-2.0-green.svg)](CHANGELOG.md)
@@ -405,11 +405,6 @@ Swal.fire({
 
 Las contribuciones son bienvenidas. Por favor:
 
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
 
 ## 📝 Licencia
 
@@ -417,7 +412,7 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 ## 👥 Autor
 
-**Equipo de Desarrollo Gestor de Gastos**
+**Equipo de Desarrollo Fianco**
 
 ## 🙏 Agradecimientos
 
@@ -430,14 +425,14 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 ¿Tienes preguntas o necesitas ayuda?
 
-- 📧 Email: soporte@gestordegastos.com
+- 📧 Email: fianco@gmail.com
 - 💬 Chat: Disponible en el sitio web
 - 🐛 Issues: Abre una issue en el repositorio
 
 ---
 
-**Versión:** 2.0  
-**Última actualización:** 2024  
+**Versión:** 2.1  
+**Última actualización:** 2026  
 **Estado:** Producción ✅
 
 Hecho con ❤️ para una mejor gestión de finanzas personales.
