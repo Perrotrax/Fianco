@@ -1,11 +1,11 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/conexion.php';
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado']);
 }
 
 $userId = $_SESSION['id_usuario'];
@@ -20,8 +20,7 @@ $fecha_emision = isset($data['fecha_emision']) ? trim($data['fecha_emision']) : 
 $id_gasto = isset($data['id_gasto']) && $data['id_gasto'] !== '' ? intval($data['id_gasto']) : null;
 
 if (!$folio || !$emisor || !$receptor || $monto <= 0) {
-    echo json_encode(['success' => false, 'message' => 'Campos obligatorios inválidos o incompletos']);
-    exit;
+    api_json(['success' => false, 'message' => 'Campos obligatorios inválidos o incompletos']);
 }
 
 $stmt = $conn->prepare("INSERT INTO facturas (id_usuario, id_gasto, folio, emisor, receptor, monto, iva, fecha_emision) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
@@ -38,12 +37,12 @@ if ($stmt) {
                 $update->close();
             }
         }
-        echo json_encode(['success' => true, 'message' => 'Factura registrada con éxito']);
+        api_json(['success' => true, 'message' => 'Factura registrada con éxito']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error al guardar factura: ' . $stmt->error]);
+        api_json(['success' => false, 'message' => 'Error al guardar factura: ' . $stmt->error]);
     }
     $stmt->close();
 } else {
-    echo json_encode(['success' => false, 'message' => 'Error de base de datos']);
+    api_json(['success' => false, 'message' => 'Error de base de datos']);
 }
 ?>

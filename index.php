@@ -265,6 +265,26 @@ if (isset($_SESSION['id_usuario'])) {
             margin-top: 14px;
         }
 
+        .login-loader {
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.12);
+            overflow: hidden;
+            margin-top: 12px;
+            display: none;
+        }
+        .login-loader.active {
+            display: block;
+        }
+        .login-loader-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ffd54f, #f57c00);
+            border-radius: 999px;
+            transition: width 0.25s ease;
+        }
+
         .btn-bio:hover {
             background: rgba(212, 175, 55, 0.1);
             border-color: var(--primary);
@@ -653,8 +673,11 @@ if (isset($_SESSION['id_usuario'])) {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
             </button>
+            <div id="loginLoader" class="login-loader">
+                <div class="login-loader-bar" id="loginLoaderBar"></div>
+            </div>
 
-            <button class="btn-bio" onclick="abrirModalBiometria()">
+            <button id="bioLoginBtn" class="btn-bio" style="display:none;" onclick="abrirModalBiometria()">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
                 </svg>
@@ -676,7 +699,7 @@ if (isset($_SESSION['id_usuario'])) {
             <!-- Profile Photo Upload -->
             <div class="avatar-upload">
                 <div class="avatar-edit">
-                    <input type="file" id="fotoPerfil" accept="image/*" onchange="preview(event)">
+                    <input type="file" id="fotoPerfil" name="foto" accept="image/*" onchange="preview(event)">
                     <label for="fotoPerfil" aria-label="Subir foto de perfil">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -752,8 +775,11 @@ if (isset($_SESSION['id_usuario'])) {
 
             <h3 id="modalTitle">Autenticación Biométrica</h3>
             <p id="modalDesc" style="color: var(--text-muted); font-size: 0.9rem; margin-top: 6px;">
-                Mantén presionado el lector para iniciar sesión rápidamente.
+                Mantén presionado el lector para iniciar sesión rápidamente. Si no deseas usar biometría, cierra este modal y usa tu contraseña.
             </p>
+            <button class="btn-secondary" style="margin-bottom: 16px; width:100%;" onclick="cerrarModalBiometria(); mostrarAlerta('Usa el formulario de contraseña para iniciar sesión.', 'info');">
+                Iniciar con Contraseña
+            </button>
 
             <div class="form-group" style="text-align: left; margin-top: 24px; margin-bottom: 5px;">
                 <label for="bioCorreo">Confirmar Correo Electrónico</label>
@@ -776,6 +802,10 @@ if (isset($_SESSION['id_usuario'])) {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
                     </svg>
                 </div>
+            </div>
+
+            <div id="bioLoader" class="login-loader">
+                <div class="login-loader-bar" id="bioLoaderBar"></div>
             </div>
 
             <div id="scannerStatus" class="scanner-status status-ready">
@@ -821,7 +851,56 @@ if (isset($_SESSION['id_usuario'])) {
                 document.getElementById('loginCorreo').value = savedEmail;
                 document.getElementById('bioCorreo').value = savedEmail;
             }
+            updateBioLoginButton();
+            const loginCorreoInput = document.getElementById('loginCorreo');
+            if (loginCorreoInput) {
+                loginCorreoInput.addEventListener('input', updateBioLoginButton);
+                loginCorreoInput.addEventListener('blur', updateBioLoginButton);
+            }
         });
+
+            function setLoginLoader(active, progress = 0) {
+                const loader = document.getElementById('loginLoader');
+                const bar = document.getElementById('loginLoaderBar');
+                if (!loader || !bar) return;
+                if (active) {
+                    loader.classList.add('active');
+                    bar.style.width = Math.min(Math.max(progress, 0), 100) + '%';
+                } else {
+                    bar.style.width = '100%';
+                    setTimeout(() => {
+                        loader.classList.remove('active');
+                        bar.style.width = '0%';
+                    }, 250);
+                }
+            }
+
+            function setBiometricLoader(active, progress = 0) {
+                const loader = document.getElementById('bioLoader');
+                const bar = document.getElementById('bioLoaderBar');
+                if (!loader || !bar) return;
+                if (active) {
+                    loader.classList.add('active');
+                    bar.style.width = Math.min(Math.max(progress, 0), 100) + '%';
+                } else {
+                    bar.style.width = '100%';
+                    setTimeout(() => {
+                        loader.classList.remove('active');
+                        bar.style.width = '0%';
+                    }, 250);
+                }
+            }
+
+            function updateBioLoginButton() {
+                const email = document.getElementById('loginCorreo')?.value.trim();
+                const button = document.getElementById('bioLoginBtn');
+                if (!button) return;
+                if (email && localStorage.getItem(`bio_token_${email}`)) {
+                    button.style.display = 'inline-flex';
+                } else {
+                    button.style.display = 'none';
+                }
+            }
 
         function mostrarRegistro(){
             ocultarAlerta();
@@ -881,6 +960,66 @@ if (isset($_SESSION['id_usuario'])) {
             }
         }
 
+        async function compressImageForUpload(file, maxSize = 900000) {
+            if (!file || file.size <= maxSize || !file.type.startsWith('image/')) {
+                return file;
+            }
+            if (!window.createImageBitmap) {
+                return file;
+            }
+            try {
+                const bitmap = await createImageBitmap(file);
+                const canvas = document.createElement('canvas');
+                let width = bitmap.width;
+                let height = bitmap.height;
+                const maxDim = 1000;
+                if (Math.max(width, height) > maxDim) {
+                    if (width > height) {
+                        height = Math.round((maxDim / width) * height);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((maxDim / height) * width);
+                        height = maxDim;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(bitmap, 0, 0, width, height);
+                bitmap.close();
+
+                let quality = 0.9;
+                let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                while (blob && blob.size > maxSize && quality > 0.4) {
+                    quality -= 0.1;
+                    blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                }
+
+                if (blob && blob.size <= maxSize) {
+                    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type: 'image/jpeg'});
+                }
+
+                let scale = 0.9;
+                while (blob && blob.size > maxSize && scale > 0.3) {
+                    width = Math.max(200, Math.round(width * scale));
+                    height = Math.max(200, Math.round(height * scale));
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.clearRect(0, 0, width, height);
+                    ctx.drawImage(bitmap, 0, 0, width, height);
+                    blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                    scale -= 0.1;
+                }
+
+                if (blob && blob.size <= maxSize) {
+                    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type: 'image/jpeg'});
+                }
+            } catch (error) {
+                console.warn('No se pudo comprimir la imagen en el registro:', error);
+            }
+            return file;
+        }
+
         async function registrar(){
             ocultarAlerta();
             const nombre = document.getElementById("nombre").value.trim();
@@ -899,7 +1038,11 @@ if (isset($_SESSION['id_usuario'])) {
             formData.append("correo", correo);
             formData.append("password", password);
             if (fotoInput.files[0]) {
-                formData.append("foto", fotoInput.files[0]);
+                const compressed = await compressImageForUpload(fotoInput.files[0], 900000);
+                if (compressed !== fotoInput.files[0]) {
+                    mostrarAlerta('📦 Optimización de imagen aplicada para el registro.', 'success');
+                }
+                formData.append("foto", compressed, compressed.name);
             }
 
             try {
@@ -950,6 +1093,7 @@ if (isset($_SESSION['id_usuario'])) {
                 return;
             }
 
+            setLoginLoader(true, 10);
             try {
                 const respuesta = await fetch("api/login.php", {
                     method: "POST",
@@ -959,7 +1103,9 @@ if (isset($_SESSION['id_usuario'])) {
                     body: JSON.stringify({ correo, password })
                 });
 
+                setLoginLoader(true, 60);
                 const resultado = await respuesta.json();
+                setLoginLoader(true, 90);
 
                 if(resultado.success){
                     // Store email locally
@@ -969,15 +1115,19 @@ if (isset($_SESSION['id_usuario'])) {
                         document.getElementById("bioCorreo").value = resultado.correo;
                         mostrarAlerta("Contraseña verificada. Se requiere autenticación biométrica.", "success");
                         setTimeout(() => {
+                            setLoginLoader(false);
                             abrirModalBiometria();
-                        }, 1200);
+                        }, 800);
                     } else {
+                        setLoginLoader(false);
                         window.location = "dashboard.php";
                     }
                 } else {
+                    setLoginLoader(false);
                     mostrarAlerta(resultado.message || "Credenciales incorrectas.", "error");
                 }
             } catch (error) {
+                setLoginLoader(false);
                 mostrarAlerta("Error de red al intentar ingresar.", "error");
                 console.error(error);
             }
@@ -1050,12 +1200,7 @@ if (isset($_SESSION['id_usuario'])) {
             const device = detectarTipoDispositivo();
             updateBiometricModalUI(device);
 
-            // Auto-trigger verification if email is already filled
-            if (loginMail) {
-                setTimeout(() => {
-                    iniciarEscaneo();
-                }, 450);
-            }
+            // Do not auto-trigger verification. The user must press the biometric sensor/button intentionally.
         }
 
         function cerrarModalBiometria() {
@@ -1087,54 +1232,90 @@ if (isset($_SESSION['id_usuario'])) {
             status.innerHTML = device === 'mobile' ? "Iniciando biometría del teléfono..." : "Iniciando Windows Hello...";
             status.className = "scanner-status status-scanning";
             document.getElementById("scannerContainer").classList.add("scanning");
+            setBiometricLoader(true, 10);
 
-            // Intentar usar WebAuthn (plataforma) para solicitar verificación biométrica
-            if (window.PublicKeyCredential && navigator.credentials) {
-                try {
-                    // Request assertion options for this user (challenge + allowedCredentials)
-                    const chalRes = await fetch('api/webauthn_assert_options.php', {
-                        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ correo: email })
-                    });
-                    const chalJson = await chalRes.json();
-                    
-                    if (chalJson && chalJson.challenge) {
-                        const publicKey = {
-                            challenge: base64ToBuffer(chalJson.challenge),
-                            timeout: 60000,
-                            allowCredentials: (chalJson.allowedCredentials || []).map(c => ({ id: base64ToBuffer(c.id), type: c.type })),
-                            userVerification: 'required'
+            let chalJson = null;
+            try {
+                const chalRes = await fetch('api/webauthn_assert_options.php', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ correo: email })
+                });
+                chalJson = await chalRes.json();
+
+                if (chalJson && chalJson.noCredentials) {
+                    localStorage.removeItem(`bio_token_${email}`);
+                    status.innerHTML = "❌ No hay ningún inicio con datos biométricos.";
+                    status.className = "scanner-status status-error";
+                    document.getElementById("scannerContainer").classList.remove("scanning");
+                    setBiometricLoader(false);
+                    return;
+                }
+
+                if (chalJson && chalJson.challenge && Array.isArray(chalJson.allowedCredentials) && chalJson.allowedCredentials.length > 0) {
+                    const publicKey = {
+                        challenge: base64ToBuffer(chalJson.challenge),
+                        timeout: 60000,
+                        allowCredentials: chalJson.allowedCredentials.map(c => ({ id: base64ToBuffer(c.id), type: c.type })),
+                        userVerification: 'required'
+                    };
+                    const cred = await navigator.credentials.get({ publicKey });
+                    if (cred) {
+                        status.innerHTML = "Verificando firma...";
+                        setBiometricLoader(true, 60);
+                        const auth = cred.response;
+                        const payload = {
+                            action: 'login',
+                            correo: email,
+                            credentialId: bufferToBase64Url(cred.rawId),
+                            clientDataJSON: bufferToBase64Url(auth.clientDataJSON),
+                            authenticatorData: bufferToBase64Url(auth.authenticatorData),
+                            signature: bufferToBase64Url(auth.signature)
                         };
-                        const cred = await navigator.credentials.get({ publicKey });
-                        if (cred) {
-                            status.innerHTML = "Verificando firma...";
-                            const auth = cred.response;
-                            const payload = {
-                                action: 'login',
-                                correo: email,
-                                credentialId: bufferToBase64Url(cred.rawId),
-                                clientDataJSON: bufferToBase64Url(auth.clientDataJSON),
-                                authenticatorData: bufferToBase64Url(auth.authenticatorData),
-                                signature: bufferToBase64Url(auth.signature)
-                            };
-                            const verifyRes = await fetch('api/webauthn_assert.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-                            const verifyJson = await verifyRes.json();
-                            if (verifyJson.success) {
-                                status.innerHTML = "✔ ¡Acceso concedido!";
-                                status.className = "scanner-status status-success";
-                                setTimeout(() => {
-                                    window.location = 'dashboard.php';
-                                }, 800);
-                                return;
-                            } else {
-                                status.innerHTML = "❌ Verificación fallida: " + verifyJson.message;
-                                status.className = "scanner-status status-error";
-                                document.getElementById("scannerContainer").classList.remove("scanning");
-                                return;
-                            }
+                        const verifyRes = await fetch('api/webauthn_assert.php', {
+                            method: 'POST',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify(payload)
+                        });
+                        const verifyJson = await verifyRes.json();
+                        setBiometricLoader(true, 90);
+                        if (verifyJson.success) {
+                            status.innerHTML = "✔ ¡Acceso concedido!";
+                            status.className = "scanner-status status-success";
+                            setBiometricLoader(false);
+                            setTimeout(() => {
+                                window.location = 'dashboard.php';
+                            }, 800);
+                            return;
+                        } else {
+                            status.innerHTML = "❌ Verificación fallida: " + verifyJson.message;
+                            status.className = "scanner-status status-error";
+                            document.getElementById("scannerContainer").classList.remove("scanning");
+                            setBiometricLoader(false);
+                            return;
                         }
                     }
-                } catch (err) {
-                    console.warn('WebAuthn no disponible o falló, usando fallback:', err);
+                }
+
+                if (chalJson && chalJson.error) {
+                    const token = localStorage.getItem(`bio_token_${email}`);
+                    if (!token) {
+                        status.innerHTML = "❌ No hay ningún inicio con datos biométricos.";
+                        status.className = "scanner-status status-error";
+                        document.getElementById("scannerContainer").classList.remove("scanning");
+                        setBiometricLoader(false);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn('WebAuthn no disponible o falló, usando fallback:', err);
+                const token = localStorage.getItem(`bio_token_${email}`);
+                if (!token) {
+                    status.innerHTML = "❌ No hay ningún inicio con datos biométricos.";
+                    status.className = "scanner-status status-error";
+                    document.getElementById("scannerContainer").classList.remove("scanning");
+                    setBiometricLoader(false);
+                    return;
                 }
             }
 

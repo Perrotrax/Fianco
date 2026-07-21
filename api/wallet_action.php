@@ -1,11 +1,11 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/conexion.php';
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado']);
 }
 
 $userId = $_SESSION['id_usuario'];
@@ -15,8 +15,7 @@ $action = isset($data['action']) ? $data['action'] : '';
 $monto = isset($data['monto']) ? floatval($data['monto']) : 0.00;
 
 if ($monto <= 0) {
-    echo json_encode(['success' => false, 'message' => 'El monto debe ser mayor a cero']);
-    exit;
+    api_json(['success' => false, 'message' => 'El monto debe ser mayor a cero']);
 }
 
 $conn->begin_transaction();
@@ -64,9 +63,9 @@ try {
     $stmt->close();
 
     $conn->commit();
-    echo json_encode(['success' => true, 'balance' => $newBalance, 'message' => 'Operación realizada con éxito']);
+    api_json(['success' => true, 'balance' => $newBalance, 'message' => 'Operación realizada con éxito']);
 } catch (Exception $e) {
     $conn->rollback();
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    api_json(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>

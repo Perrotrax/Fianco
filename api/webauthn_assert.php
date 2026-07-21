@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
@@ -8,12 +9,11 @@ $response = ['success' => false, 'message' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $response['message'] = 'Método no permitido.';
-    echo json_encode($response);
-    exit;
+    api_json($response);
 }
 
 $data = json_decode(file_get_contents('php://input'), true);
-if (!is_array($data)) { echo json_encode($response); exit; }
+if (!is_array($data)) { api_json($response); }
 
 $correo = isset($data['correo']) ? trim($data['correo']) : '';
 $credentialId_b64 = isset($data['credentialId']) ? $data['credentialId'] : '';
@@ -23,8 +23,7 @@ $signature_b64 = isset($data['signature']) ? $data['signature'] : '';
 
 if (!$correo || !$credentialId_b64 || !$clientDataJSON_b64 || !$authenticatorData_b64 || !$signature_b64) {
     $response['message'] = 'Faltan parámetros.';
-    echo json_encode($response);
-    exit;
+    api_json($response);
 }
 
 function base64url_decode_str($b) {
@@ -35,16 +34,28 @@ function base64url_decode_str($b) {
 }
 
 $credRaw = base64url_decode_str($credentialId_b64);
-if ($credRaw === false) { echo json_encode($response); exit; }
+if ($credRaw === false) { api_json($response); }
 
 // Load stored credential
 $sql = "SELECT wc.*, u.id_usuario, u.nombre FROM webauthn_credentials wc JOIN usuarios u ON wc.id_usuario = u.id_usuario WHERE u.correo = ? LIMIT 1";
 $stmt = $conn->prepare($sql);
-if (!$stmt) { echo json_encode($response); exit; }
+if (!$stmt) {
+    $response['message'] = 'Error DB';
+    $response['detail'] = $conn->error;
+    api_json($response);
+}
 $stmt->bind_param('s', $correo);
 $stmt->execute();
 $res = $stmt->get_result();
-if ($res->num_rows === 0) { $response['message'] = 'Credencial no encontrada.'; echo json_encode($response); exit; }
+if (!$res) {
+    $response['message'] = 'Error al obtener credencial.';
+    $response['detail'] = $stmt->error;
+    api_json($response);
+}
+if ($res->num_rows === 0) {
+    $response['message'] = 'Credencial no encontrada.';
+    api_json($response);
+}
 $row = $res->fetch_assoc();
 $stmt->close();
 
@@ -56,27 +67,50 @@ $clientDataJSON = base64url_decode_str($clientDataJSON_b64);
 $authenticatorData = base64url_decode_str($authenticatorData_b64);
 $signature = base64url_decode_str($signature_b64);
 
-$expectedChallenge = isset($_SESSION['webauthn_challenge']) ? $_SESSION['webauthn_challenge'] : null;
-if (!$expectedChallenge) { $response['message'] = 'No challenge en sesión.'; echo json_encode($response); exit; }
+function normalizeChallenge($challenge) {
+    if (!is_string($challenge)) {
+        return null;
+    }
+    if (strpos($challenge, '%3D') !== false) {
+        $challenge = urldecode($challenge);
+    }
+    $challenge = strtr($challenge, '-_', '+/');
+    $pad = strlen($challenge) % 4;
+    if ($pad) {
+        $challenge .= str_repeat('=', 4 - $pad);
+    }
+    return $challenge;
+}
+
+$expectedChallenge = normalizeChallenge(isset($_SESSION['webauthn_challenge']) ? $_SESSION['webauthn_challenge'] : null);
+if (!$expectedChallenge) {
+    $response['message'] = 'No challenge en sesión.';
+    api_json($response);
+}
 
 // Simplified verification: check that a credential with the provided id exists for the user
 // and that a challenge was previously generated. This is NOT a cryptographic verification
 // but provides a compatibility layer while keeping the WebAuthn UX.
 
 $clientData = json_decode($clientDataJSON, true);
-if (!$clientData) { $response['message'] = 'clientData inválido.'; echo json_encode($response); exit; }
+if (!$clientData) {
+    $response['message'] = 'clientData inválido.';
+    api_json($response);
+}
 
-$gotChallenge = isset($clientData['challenge']) ? $clientData['challenge'] : null;
-if ($gotChallenge && strpos($gotChallenge, '%3D') !== false) $gotChallenge = urldecode($gotChallenge);
-
-if (!hash_equals($expectedChallenge, $gotChallenge)) { $response['message'] = 'Challenge no coincide.'; echo json_encode($response); exit; }
+$gotChallenge = normalizeChallenge(isset($clientData['challenge']) ? $clientData['challenge'] : null);
+$expectedChallengeRaw = $expectedChallenge ? base64url_decode_str($expectedChallenge) : false;
+$gotChallengeRaw = $gotChallenge ? base64url_decode_str($gotChallenge) : false;
+if ($expectedChallengeRaw === false || $gotChallengeRaw === false || !hash_equals($expectedChallengeRaw, $gotChallengeRaw)) {
+    $response['message'] = 'Challenge no coincide.';
+    api_json($response);
+}
 
 // Check credential id matches stored credential (we stored it base64url)
 $credB64 = $credentialId_b64;
-if ($credB64 !== $storedCredentialId) {
+    if ($credB64 !== $storedCredentialId) {
     $response['message'] = 'Credencial no coincide con la registrada.';
-    echo json_encode($response);
-    exit;
+    api_json($response);
 }
 
 // If we have a stored public key JWK, try to cryptographically verify the signature
@@ -141,6 +175,6 @@ if ($publicKeyJson && trim($publicKeyJson) !== '') {
     if ($stmt) { $stmt->bind_param('i', $row['id_cred']); $stmt->execute(); $stmt->close(); }
 }
 
-echo json_encode($response);
+api_json($response);
 
 ?>

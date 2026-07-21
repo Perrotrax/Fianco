@@ -1,9 +1,9 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 if (!isset($_SESSION['id_usuario'])) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'No autorizado.']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado.']);
 }
 
 require_once __DIR__ . '/conexion.php';
@@ -13,8 +13,7 @@ $gastoId = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
 if ($gastoId <= 0) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'ID de gasto no válido.']);
-    exit;
+    api_json(['success' => false, 'message' => 'ID de gasto no válido.']);
 }
 
 $stmt = $conn->prepare("SELECT foto_recibo FROM gastos WHERE id_gasto = ? AND id_usuario = ?");
@@ -52,18 +51,15 @@ if ($stmt) {
             echo $foto;
         } else {
             http_response_code(404);
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'No hay imagen asociada a este gasto.']);
+            api_json(['success' => false, 'message' => 'No hay imagen asociada a este gasto.']);
         }
     } else {
         http_response_code(404);
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'message' => 'Gasto no encontrado.']);
+        api_json(['success' => false, 'message' => 'Gasto no encontrado.']);
     }
     $stmt->close();
 } else {
     http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'Error de base de datos.']);
+    api_json(['success' => false, 'message' => 'Error de base de datos.']);
 }
 ?>

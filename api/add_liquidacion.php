@@ -1,11 +1,11 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/conexion.php';
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado']);
 }
 
 $userId = $_SESSION['id_usuario'];
@@ -15,8 +15,7 @@ $id_viaje = isset($data['id_viaje']) ? intval($data['id_viaje']) : 0;
 $nombre = isset($data['nombre']) ? trim($data['nombre']) : '';
 
 if ($id_viaje <= 0 || !$nombre) {
-    echo json_encode(['success' => false, 'message' => 'El viaje y el nombre de la liquidación son obligatorios']);
-    exit;
+    api_json(['success' => false, 'message' => 'El viaje y el nombre de la liquidación son obligatorios']);
 }
 
 // 1) Obtener suma de gastos aprobados para el viaje
@@ -56,12 +55,12 @@ if ($stmt) {
             $update->execute();
             $update->close();
         }
-        echo json_encode(['success' => true, 'message' => 'Liquidación procesada con éxito', 'resultado' => $resultado]);
+        api_json(['success' => true, 'message' => 'Liquidación procesada con éxito', 'resultado' => $resultado]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error al registrar liquidación: ' . $stmt->error]);
+        api_json(['success' => false, 'message' => 'Error al registrar liquidación: ' . $stmt->error]);
     }
     $stmt->close();
 } else {
-    echo json_encode(['success' => false, 'message' => 'Error de base de datos']);
+    api_json(['success' => false, 'message' => 'Error de base de datos']);
 }
 ?>

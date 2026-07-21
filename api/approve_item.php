@@ -1,11 +1,11 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/conexion.php';
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado']);
 }
 
 $userId = $_SESSION['id_usuario'];
@@ -16,8 +16,7 @@ $tipo = isset($data['tipo']) ? trim($data['tipo']) : ''; // 'gasto' o 'anticipo'
 $accion = isset($data['accion']) ? trim($data['accion']) : ''; // 'aprobar' o 'rechazar'
 
 if ($id <= 0 || !in_array($tipo, ['gasto', 'anticipo']) || !in_array($accion, ['aprobar', 'rechazar'])) {
-    echo json_encode(['success' => false, 'message' => 'Parámetros inválidos']);
-    exit;
+    api_json(['success' => false, 'message' => 'Parámetros inválidos']);
 }
 
 $nuevoEstado = ($accion === 'aprobar') ? 'Aprobado' : 'Rechazado';
@@ -139,9 +138,9 @@ try {
     }
 
     $conn->commit();
-    echo json_encode(['success' => true, 'message' => "Elemento $nuevoEstado con éxito"]);
+    api_json(['success' => true, 'message' => "Elemento $nuevoEstado con éxito"]);
 } catch (Exception $e) {
     $conn->rollback();
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    api_json(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>

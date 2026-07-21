@@ -1,11 +1,11 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/conexion.php';
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado']);
 }
 $userId = $_SESSION['id_usuario'];
 
@@ -17,23 +17,47 @@ $mesAnterior = date('Y-m', strtotime('-1 month'));
 
 // Gasto total mes actual (solo aprobados)
 $stmt = $conn->prepare("SELECT COALESCE(SUM(monto),0) as total FROM gastos WHERE id_usuario=? AND estado='Aprobado' AND DATE_FORMAT(fecha,'%Y-%m')=?");
+if (!$stmt) {
+    api_json(['success' => false, 'message' => 'Error en la consulta de estadísticas', 'detail' => $conn->error]);
+}
 $stmt->bind_param("is", $userId, $mesActual);
 $stmt->execute();
-$response['gasto_mes_actual'] = floatval($stmt->get_result()->fetch_assoc()['total']);
+$res = $stmt->get_result();
+if (!$res) {
+    api_json(['success' => false, 'message' => 'Error en la consulta de estadísticas', 'detail' => $stmt->error]);
+}
+$row = $res->fetch_assoc();
+$response['gasto_mes_actual'] = floatval($row['total'] ?? 0);
 $stmt->close();
 
 // Gasto total mes anterior
 $stmt = $conn->prepare("SELECT COALESCE(SUM(monto),0) as total FROM gastos WHERE id_usuario=? AND estado='Aprobado' AND DATE_FORMAT(fecha,'%Y-%m')=?");
+if (!$stmt) {
+    api_json(['success' => false, 'message' => 'Error en la consulta de estadísticas', 'detail' => $conn->error]);
+}
 $stmt->bind_param("is", $userId, $mesAnterior);
 $stmt->execute();
-$response['gasto_mes_anterior'] = floatval($stmt->get_result()->fetch_assoc()['total']);
+$res = $stmt->get_result();
+if (!$res) {
+    api_json(['success' => false, 'message' => 'Error en la consulta de estadísticas', 'detail' => $stmt->error]);
+}
+$row = $res->fetch_assoc();
+$response['gasto_mes_anterior'] = floatval($row['total'] ?? 0);
 $stmt->close();
 
 // Presupuesto mensual
 $stmt = $conn->prepare("SELECT presupuesto FROM usuarios WHERE id_usuario=?");
+if (!$stmt) {
+    api_json(['success' => false, 'message' => 'Error en la consulta de estadísticas', 'detail' => $conn->error]);
+}
 $stmt->bind_param("i", $userId);
 $stmt->execute();
-$response['presupuesto'] = floatval($stmt->get_result()->fetch_assoc()['presupuesto']);
+$res = $stmt->get_result();
+if (!$res) {
+    api_json(['success' => false, 'message' => 'Error en la consulta de estadísticas', 'detail' => $stmt->error]);
+}
+$row = $res->fetch_assoc();
+$response['presupuesto'] = floatval($row['presupuesto'] ?? 0);
 $stmt->close();
 
 // Días transcurridos y días del mes
@@ -99,5 +123,5 @@ while ($row = $res->fetch_assoc()) $estados[$row['estado']] = intval($row['cnt']
 $response['conteo_estados'] = $estados;
 $stmt->close();
 
-echo json_encode($response);
+api_json($response);
 ?>

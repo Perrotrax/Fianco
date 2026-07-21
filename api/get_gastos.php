@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado.']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado.']);
 }
 
 require_once __DIR__ . '/conexion.php';
@@ -51,7 +51,7 @@ if ($stmt) {
         }
     }
     
-    echo json_encode([
+    api_json([
         'success' => true,
         'gastos' => $gastos,
         'total_gastado' => $total
@@ -59,6 +59,6 @@ if ($stmt) {
     
     $stmt->close();
 } else {
-    echo json_encode(['success' => false, 'message' => 'Error de base de datos.']);
+    api_json(['success' => false, 'message' => 'Error de base de datos.']);
 }
 ?>

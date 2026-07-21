@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado.']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado.']);
 }
 
 require_once __DIR__ . '/conexion.php';
@@ -23,7 +23,7 @@ if (isset($input['presupuesto'])) {
     $userId = $_SESSION['id_usuario'];
 
     if ($presupuesto < 0) {
-        echo json_encode(['success' => false, 'message' => 'El presupuesto no puede ser negativo.']);
+        api_json(['success' => false, 'message' => 'El presupuesto no puede ser negativo.']);
         exit;
     }
 
@@ -31,15 +31,15 @@ if (isset($input['presupuesto'])) {
     if ($stmt) {
         $stmt->bind_param("di", $presupuesto, $userId);
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Presupuesto actualizado.']);
+            api_json(['success' => true, 'message' => 'Presupuesto actualizado.']);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Error al actualizar el presupuesto.']);
+            api_json(['success' => false, 'message' => 'Error al actualizar el presupuesto.']);
         }
         $stmt->close();
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error en la base de datos.']);
+        api_json(['success' => false, 'message' => 'Error en la base de datos.']);
     }
 } else {
-    echo json_encode(['success' => false, 'message' => 'Datos incompletos.']);
+    api_json(['success' => false, 'message' => 'Datos incompletos.']);
 }
 ?>

@@ -1,11 +1,11 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/conexion.php';
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado']);
 }
 
 $userId = $_SESSION['id_usuario'];
@@ -174,5 +174,5 @@ usort($response['aprobaciones_pendientes'], function($a, $b) {
     return strcmp($b['fecha'], $a['fecha']);
 });
 
-echo json_encode($response);
+api_json($response);
 ?>

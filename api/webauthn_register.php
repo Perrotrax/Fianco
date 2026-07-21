@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
@@ -8,15 +9,13 @@ $response = ['success' => false, 'message' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $response['message'] = 'Método no permitido.';
-    echo json_encode($response);
-    exit;
+    api_json($response);
 }
 
 $data = json_decode(file_get_contents('php://input'), true);
 if (!is_array($data)) {
     $response['message'] = 'JSON inválido.';
-    echo json_encode($response);
-    exit;
+    api_json($response);
 }
 
 $correo = isset($data['correo']) ? trim($data['correo']) : '';
@@ -25,18 +24,29 @@ $publicKeyJwk = isset($data['publicKeyJwk']) ? $data['publicKeyJwk'] : null;
 
 if (!$correo || !$credentialId_b64) {
     $response['message'] = 'Faltan parámetros.';
-    echo json_encode($response);
-    exit;
+    api_json($response);
 }
 
 // Buscar usuario
 $sql = "SELECT id_usuario FROM usuarios WHERE correo = ?";
 $stmt = $conn->prepare($sql);
-if (!$stmt) { $response['message'] = 'Error DB'; echo json_encode($response); exit; }
+if (!$stmt) {
+    $response['message'] = 'Error DB';
+    $response['detail'] = $conn->error;
+    api_json($response);
+}
 $stmt->bind_param('s', $correo);
 $stmt->execute();
 $res = $stmt->get_result();
-if ($res->num_rows === 0) { $response['message'] = 'Usuario no encontrado.'; echo json_encode($response); exit; }
+if (!$res) {
+    $response['message'] = 'Error al obtener datos del usuario.';
+    $response['detail'] = $stmt->error;
+    api_json($response);
+}
+if ($res->num_rows === 0) {
+    $response['message'] = 'Usuario no encontrado.';
+    api_json($response);
+}
 $user = $res->fetch_assoc();
 $userId = $user['id_usuario'];
 $stmt->close();
@@ -51,7 +61,11 @@ if ($publicKeyJwk) {
 
 $sql = "INSERT INTO webauthn_credentials (id_usuario, credential_id, public_key, sign_count, transports, aaguid) VALUES (?, ?, ?, 0, NULL, NULL)";
 $stmt = $conn->prepare($sql);
-if (!$stmt) { $response['message'] = 'Error al preparar inserción.'; echo json_encode($response); exit; }
+if (!$stmt) {
+    $response['message'] = 'Error al preparar inserción.';
+    $response['detail'] = $conn->error;
+    api_json($response);
+}
 $stmt->bind_param('iss', $userId, $credB64, $publicKeyJson);
 if ($stmt->execute()) {
     // habilitar webauthn en usuarios
@@ -63,6 +77,6 @@ $stmt->close();
 } else {
     $response['message'] = 'Error al guardar credencial.';
 }
-echo json_encode($response);
+api_json($response);
 
 ?>

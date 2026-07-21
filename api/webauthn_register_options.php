@@ -1,20 +1,29 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/conexion.php';
 
 // Returns publicKey options for navigator.credentials.create
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['error'=>'Method not allowed']); exit; }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { api_json(['error'=>'Method not allowed']); }
 $data = json_decode(file_get_contents('php://input'), true);
 $correo = isset($data['correo']) ? $data['correo'] : '';
-if (!$correo) { echo json_encode(['error'=>'Missing correo']); exit; }
+if (!$correo) { api_json(['error'=>'Missing correo']); }
 
 // find user id
 $stmt = $conn->prepare('SELECT id_usuario, nombre FROM usuarios WHERE correo = ?');
+if (!$stmt) {
+    api_json(['error' => 'Error de base de datos.', 'detail' => $conn->error]);
+}
 $stmt->bind_param('s', $correo);
 $stmt->execute();
 $res = $stmt->get_result();
-if ($res->num_rows === 0) { echo json_encode(['error'=>'Usuario no encontrado']); exit; }
+if (!$res) {
+    api_json(['error' => 'Error al obtener datos del usuario.', 'detail' => $stmt->error]);
+}
+if ($res->num_rows === 0) {
+    api_json(['error' => 'Usuario no encontrado']);
+}
 $user = $res->fetch_assoc();
 $stmt->close();
 
@@ -30,9 +39,12 @@ $publicKey = [
     'challenge' => rtrim(strtr($challenge, '+/', '-_'), '='),
     'rp' => ['name' => 'Gestor Gastos'],
     'user' => [ 'id' => $userIdB64, 'name' => $correo, 'displayName' => $user['nombre'] ],
-    'pubKeyCredParams' => [ ['type'=>'public-key','alg'=>-7] ],
+    'pubKeyCredParams' => [
+        ['type'=>'public-key','alg'=>-7],
+        ['type'=>'public-key','alg'=>-257]
+    ],
     'timeout' => 60000,
     'attestation' => 'none'
 ];
 
-echo json_encode(['publicKey' => $publicKey]);
+api_json(['publicKey' => $publicKey]);

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
@@ -25,8 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'register') {
         if (!isset($_SESSION['id_usuario'])) {
             $response['message'] = 'Debes iniciar sesion para configurar la biometria.';
-            echo json_encode($response);
-            exit;
+            api_json($response);
         }
 
         $userId = $_SESSION['id_usuario'];
@@ -50,19 +50,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $response['message'] = 'Error al preparar la consulta.';
             }
         } else {
-            $sql = "UPDATE usuarios SET biometrico = 0, token_biometrico = NULL WHERE id_usuario = ?";
+            $conn->begin_transaction();
+            $success = true;
+
+            $sql = "UPDATE usuarios SET biometrico = 0, token_biometrico = NULL, webauthn_enabled = 0 WHERE id_usuario = ?";
             $stmt = $conn->prepare($sql);
             if ($stmt) {
                 $stmt->bind_param("i", $userId);
-                if ($stmt->execute()) {
-                    $response['success'] = true;
-                    $response['message'] = 'Biometria desactivada correctamente.';
-                } else {
-                    $response['message'] = 'Error al actualizar la base de datos.';
+                if (!$stmt->execute()) {
+                    $success = false;
                 }
                 $stmt->close();
             } else {
-                $response['message'] = 'Error al preparar la consulta.';
+                $success = false;
+            }
+
+            $sql = "DELETE FROM webauthn_credentials WHERE id_usuario = ?";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("i", $userId);
+                if (!$stmt->execute()) {
+                    $success = false;
+                }
+                $stmt->close();
+            } else {
+                $success = false;
+            }
+
+            if ($success) {
+                $conn->commit();
+                $response['success'] = true;
+                $response['message'] = 'Biometria desactivada y credenciales WebAuthn eliminadas.';
+            } else {
+                $conn->rollback();
+                $response['message'] = 'Error al desactivar la biometría.';
             }
         }
 
@@ -72,8 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($correo) || empty($token)) {
             $response['message'] = 'Correo y token biometrico requeridos.';
-            echo json_encode($response);
-            exit;
+            api_json($response);
         }
 
         $sql = "SELECT * FROM usuarios WHERE correo = ? AND biometrico = 1";
@@ -140,5 +160,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $response['message'] = 'Metodo no permitido.';
 }
 
-echo json_encode($response);
+api_json($response);
 ?>

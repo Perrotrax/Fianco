@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado.']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado.']);
 }
 
 require_once __DIR__ . '/conexion.php';
@@ -23,8 +23,7 @@ if (stripos($contentType, 'application/json') !== false) {
 }
 
 if ($id_gasto <= 0) {
-    echo json_encode(['success' => false, 'message' => 'ID de gasto inválido.']);
-    exit;
+    api_json(['success' => false, 'message' => 'ID de gasto inválido.']);
 }
 
 $userId = $_SESSION['id_usuario'];
@@ -36,15 +35,15 @@ if ($stmt) {
     $stmt->bind_param("ii", $id_gasto, $userId);
     if ($stmt->execute()) {
         if ($stmt->affected_rows > 0) {
-            echo json_encode(['success' => true, 'message' => 'Gasto eliminado correctamente.']);
+            api_json(['success' => true, 'message' => 'Gasto eliminado correctamente.']);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Gasto no encontrado o no autorizado.']);
+            api_json(['success' => false, 'message' => 'Gasto no encontrado o no autorizado.']);
         }
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error al ejecutar la eliminación.']);
+        api_json(['success' => false, 'message' => 'Error al ejecutar la eliminación.']);
     }
     $stmt->close();
 } else {
-    echo json_encode(['success' => false, 'message' => 'Error de base de datos.']);
+    api_json(['success' => false, 'message' => 'Error de base de datos.']);
 }
 ?>

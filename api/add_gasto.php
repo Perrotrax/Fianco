@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
 if (!isset($_SESSION['id_usuario'])) {
-    echo json_encode(['success' => false, 'message' => 'No autorizado.']);
-    exit;
+    api_json(['success' => false, 'message' => 'No autorizado.']);
 }
 
 require_once __DIR__ . '/conexion.php';
@@ -44,8 +44,7 @@ if (stripos($contentType, 'application/json') !== false) {
 }
 
 if (empty($descripcion) || $monto <= 0 || empty($categoria)) {
-    echo json_encode(['success' => false, 'message' => 'Datos de gasto inválidos o incompletos.']);
-    exit;
+    api_json(['success' => false, 'message' => 'Datos de gasto inválidos o incompletos.']);
 }
 
 $userId = $_SESSION['id_usuario'];
@@ -114,9 +113,9 @@ try {
     $stmt->close();
 
     $conn->commit();
-    echo json_encode(['success' => true, 'message' => 'Gasto agregado correctamente.']);
+    api_json(['success' => true, 'message' => 'Gasto agregado correctamente.']);
 } catch (Exception $e) {
     $conn->rollback();
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    api_json(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>

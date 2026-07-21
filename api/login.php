@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/api_common.php';
 session_start();
 header('Content-Type: application/json');
 
@@ -26,8 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($correo) || empty($password)) {
         $response['message'] = 'Todos los campos son obligatorios.';
-        echo json_encode($response);
-        exit;
+        api_json($response);
     }
 
     $sql = "SELECT * FROM usuarios WHERE correo = ?";
@@ -49,6 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $response['success']            = true;
                 $response['biometrics_required'] = false;
                 $response['message']            = 'Inicio de sesion exitoso.';
+                if (!empty($usuario['foto_perfil'])) {
+                    $finfo = new finfo(FILEINFO_MIME_TYPE);
+                    $mime = $finfo->buffer($usuario['foto_perfil']);
+                    $response['foto_base64'] = 'data:' . $mime . ';base64,' . base64_encode($usuario['foto_perfil']);
+                }
 
             } else {
                 $response['message'] = 'Contraseña incorrecta.';
@@ -61,8 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $response['message'] = 'Error al preparar la consulta en la base de datos.';
     }
 } else {
+    http_response_code(405);
     $response['message'] = 'Método no permitido.';
 }
 
-echo json_encode($response);
+api_json($response);
 ?>

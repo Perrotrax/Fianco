@@ -1809,6 +1809,26 @@ label.form-label {
 }
 
 @media (max-width: 640px) {
+  body {
+    overflow: auto;
+  }
+
+  #app {
+    height: auto;
+    min-height: 100vh;
+    flex-direction: column;
+  }
+
+  #main {
+    height: auto;
+    overflow: visible;
+  }
+
+  #content {
+    padding: 12px;
+    overflow: visible;
+  }
+
   .dashboard-grid {
     grid-template-columns: 1fr 1fr;
   }

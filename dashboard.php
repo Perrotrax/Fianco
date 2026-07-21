@@ -44,7 +44,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
@@ -53,7 +53,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
     <link rel="stylesheet" href="css/sweetalert.css?v=<?= filemtime('css/sweetalert.css') ?>">
     
     <!-- JS Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -1066,7 +1066,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                         <div style="position:relative; display:inline-block;">
                             <img id="perfil-foto-preview" src="<?= $fotoSrc ?>" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--primary); box-shadow:0 4px 12px rgba(109,76,65,0.25);">
                             <label for="perfilFotoInput" style="position:absolute; bottom:0; right:0; background:var(--primary); color:white; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem; border:2px solid white;">📷</label>
-                            <input type="file" id="perfilFotoInput" accept="image/*" style="display:none;" onchange="actualizarFotoPerfil(event)">
+                            <input type="file" id="perfilFotoInput" name="foto" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="actualizarFotoPerfil(event)">
                         </div>
                         <p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">Haz clic en el icono para cambiar tu foto</p>
                     </div>
@@ -1657,11 +1657,11 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                     proyectosData = json.proyectos;
                     viajesData = json.viajes;
                     anticiposData = json.anticipos;
-                    facturasData = json.facturas;
-                    liquidacionesData = json.liquidaciones;
-                    walletTxData = json.wallet_transactions;
-                    categoriasCustomData = json.categorias_custom;
-                    aprobacionesData = json.aprobaciones_pendientes;
+                    facturasData = Array.isArray(json.facturas) ? json.facturas : [];
+                    liquidacionesData = Array.isArray(json.liquidaciones) ? json.liquidaciones : [];
+                    walletTxData = Array.isArray(json.wallet_transactions) ? json.wallet_transactions : [];
+                    categoriasCustomData = Array.isArray(json.categorias_custom) ? json.categorias_custom : [];
+                    aprobacionesData = Array.isArray(json.aprobaciones_pendientes) ? json.aprobaciones_pendientes : [];
 
                     // Actualizar balances
                     const dispSaldo = document.getElementById('display-saldo');
@@ -2000,12 +2000,13 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
         function renderFacturas() {
             const tbody = document.getElementById('facturas-tbody');
             if (!tbody) return;
-            if (facturasData.length === 0) {
+            const invoices = Array.isArray(facturasData) ? facturasData : [];
+            if (invoices.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No hay facturas registradas</td></tr>`;
                 return;
             }
             tbody.innerHTML = '';
-            facturasData.forEach(f => {
+            invoices.forEach(f => {
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${f.folio}</strong></td>
@@ -2951,6 +2952,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
 
         async function toggleBiometria(cb) {
             const enable = cb.checked;
+            const localKey = `bio_token_${userEmail}`;
             try {
                 if (enable && window.PublicKeyCredential && navigator.credentials) {
                     try {
@@ -3007,12 +3009,22 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                 });
                 const json = await res.json();
                 if (json.success) {
-                    enable ? localStorage.setItem(`bio_token_${userEmail}`, json.token) : localStorage.removeItem(`bio_token_${userEmail}`);
+                    if (enable) {
+                        localStorage.setItem(localKey, json.token);
+                    } else {
+                        localStorage.removeItem(localKey);
+                        localStorage.removeItem(`bio_token_${userEmail}`);
+                        cb.checked = false;
+                    }
                     showToast(enable ? "Biometría habilitada" : "Biometría deshabilitada");
                 } else {
                     cb.checked = !enable;
+                    showToast(json.message || "Error al configurar biometría", true);
                 }
-            } catch(e) { cb.checked = !enable; }
+            } catch(e) {
+                cb.checked = !enable;
+                showToast("Error al configurar biometría", true);
+            }
             actualizarBiometriaLog();
         }
 
@@ -3145,26 +3157,121 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             }
         }
 
+        async function compressImageIfNeeded(file, maxSize = 900000) {
+            if (!file || file.size <= maxSize || !file.type.startsWith('image/')) {
+                return file;
+            }
+            if (!window.createImageBitmap) {
+                return file;
+            }
+
+            try {
+                const bitmap = await createImageBitmap(file);
+                const canvas = document.createElement('canvas');
+                let width = bitmap.width;
+                let height = bitmap.height;
+                const maxDim = 1000;
+                if (Math.max(width, height) > maxDim) {
+                    if (width > height) {
+                        height = Math.round((maxDim / width) * height);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((maxDim / height) * width);
+                        height = maxDim;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(bitmap, 0, 0, width, height);
+                bitmap.close();
+
+                let quality = 0.9;
+                let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                while (blob && blob.size > maxSize && quality > 0.4) {
+                    quality -= 0.1;
+                    blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                }
+
+                let currentWidth = width;
+                let currentHeight = height;
+                while (blob && blob.size > maxSize && currentWidth > 200) {
+                    currentWidth = Math.max(200, Math.round(currentWidth * 0.9));
+                    currentHeight = Math.max(200, Math.round(currentHeight * 0.9));
+                    canvas.width = currentWidth;
+                    canvas.height = currentHeight;
+                    ctx.drawImage(bitmap, 0, 0, currentWidth, currentHeight);
+                    blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+                }
+
+                if (blob && blob.size <= maxSize) {
+                    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type: 'image/jpeg'});
+                }
+            } catch (error) {
+                console.warn('No se pudo comprimir la imagen en el cliente:', error);
+            }
+            return file;
+        }
+
         async function actualizarFotoPerfil(event) {
             const file = event.target.files[0];
             if (!file) return;
-            // Preview
+
+            console.log('Subiendo foto de perfil:', file.name, file.type, file.size);
+
+            const previewEl = document.getElementById('perfil-foto-preview');
+            const sidebarPhoto = document.querySelector('.profile-mini img');
             const reader = new FileReader();
             reader.onload = e => {
-                document.getElementById('perfil-foto-preview').src = e.target.result;
-                // Also update sidebar photo
-                const sidebarPhoto = document.querySelector('.profile-mini img');
+                if (previewEl) previewEl.src = e.target.result;
                 if (sidebarPhoto) sidebarPhoto.src = e.target.result;
             };
             reader.readAsDataURL(file);
-            
-            // Upload
+
+            const fileToUpload = await compressImageIfNeeded(file, 900000);
+            if (fileToUpload !== file) {
+                showToast('📦 Optimizando imagen para la subida...');
+                console.log('Imagen comprimida: original', file.size, 'comprimido', fileToUpload.size);
+            }
+
             const fd = new FormData();
-            fd.append('foto', file);
+            fd.append('foto', fileToUpload, fileToUpload.name);
             fd.append('action', 'update_foto');
-            const res = await fetch('api/update_perfil.php?action=update_foto', {method:'POST', body: fd});
-            const json = await res.json();
-            showToast(json.success ? '✅ Foto de perfil actualizada' : json.message || 'Error al subir foto');
+
+            console.log('FormData foto exists:', fd.get('foto'));
+            let json;
+            try {
+                const res = await fetch('api/update_perfil.php?action=update_foto', {method:'POST', body: fd});
+                const text = await res.text();
+                try {
+                    json = JSON.parse(text);
+                } catch (parseError) {
+                    console.error('No se pudo parsear JSON de respuesta:', text);
+                    showToast('Error al subir foto: respuesta inválida del servidor');
+                    return;
+                }
+                console.log('Respuesta servidor update_foto:', json, 'status:', res.status);
+                if (!res.ok) {
+                    console.error('Respuesta no OK del servidor:', res.status, json);
+                    showToast(json.message || 'Error al subir foto');
+                    return;
+                }
+            } catch (error) {
+                console.error('Error en fetch de foto de perfil:', error);
+                showToast('Error de red al intentar subir la foto');
+                return;
+            }
+
+            if (json.success) {
+                if (json.foto_base64) {
+                    if (previewEl) previewEl.src = json.foto_base64;
+                    if (sidebarPhoto) sidebarPhoto.src = json.foto_base64;
+                }
+                showToast('✅ Foto de perfil actualizada');
+            } else {
+                console.warn('Servidor devolvió error al subir foto:', json);
+                showToast((json.message || 'Error al subir foto') + (json.detail ? ': ' + json.detail : ''));
+            }
         }
 
         function actualizarPerfilStats() {
