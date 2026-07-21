@@ -17,6 +17,7 @@ $id_proyecto = null;
 $id_viaje = null;
 $metodo_pago = 'Efectivo';
 $estado = 'Pendiente'; // Todos los gastos nuevos entran como 'Pendiente' para el flujo de Aprobación
+$foto_recibo_base64 = '';
 
 if (stripos($contentType, 'application/json') !== false) {
     $content = trim(file_get_contents("php://input"));
@@ -29,6 +30,7 @@ if (stripos($contentType, 'application/json') !== false) {
         $id_viaje = (isset($decoded['id_viaje']) && $decoded['id_viaje'] !== '') ? (int)$decoded['id_viaje'] : null;
         $metodo_pago = isset($decoded['metodo_pago']) ? trim($decoded['metodo_pago']) : 'Efectivo';
         $estado = isset($decoded['estado']) ? trim($decoded['estado']) : 'Pendiente';
+        $foto_recibo_base64 = isset($decoded['foto_recibo']) ? trim($decoded['foto_recibo']) : '';
     }
 } else {
     $descripcion = isset($_POST['descripcion']) ? trim($_POST['descripcion']) : '';
@@ -38,6 +40,7 @@ if (stripos($contentType, 'application/json') !== false) {
     $id_viaje = (isset($_POST['id_viaje']) && $_POST['id_viaje'] !== '') ? (int)$_POST['id_viaje'] : null;
     $metodo_pago = isset($_POST['metodo_pago']) ? trim($_POST['metodo_pago']) : 'Efectivo';
     $estado = isset($_POST['estado']) ? trim($_POST['estado']) : 'Pendiente';
+    $foto_recibo_base64 = isset($_POST['foto_recibo']) ? trim($_POST['foto_recibo']) : '';
 }
 
 if (empty($descripcion) || $monto <= 0 || empty($categoria)) {
@@ -86,13 +89,25 @@ try {
     }
 
     // Insertar gasto
-    $sql = "INSERT INTO gastos (id_usuario, id_proyecto, id_viaje, descripcion, monto, categoria, estado, metodo_pago) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    $foto_recibo_bin = null;
+    if (!empty($foto_recibo_base64)) {
+        if (preg_match('/^data:image\/(\w+);base64,/', $foto_recibo_base64)) {
+            $foto_recibo_base64 = substr($foto_recibo_base64, strpos($foto_recibo_base64, ',') + 1);
+        }
+        $foto_recibo_bin = base64_decode($foto_recibo_base64);
+    }
+
+    $sql = "INSERT INTO gastos (id_usuario, id_proyecto, id_viaje, descripcion, monto, categoria, estado, metodo_pago, foto_recibo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         throw new Exception("Error al preparar base de datos: " . $conn->error);
     }
     
-    $stmt->bind_param("iiisdsss", $userId, $id_proyecto, $id_viaje, $descripcion, $monto, $categoria, $estado, $metodo_pago);
+    $null = null;
+    $stmt->bind_param("iiisdsssb", $userId, $id_proyecto, $id_viaje, $descripcion, $monto, $categoria, $estado, $metodo_pago, $null);
+    if ($foto_recibo_bin !== null) {
+        $stmt->send_long_data(8, $foto_recibo_bin);
+    }
     if (!$stmt->execute()) {
         throw new Exception("Error al guardar el gasto: " . $stmt->error);
     }

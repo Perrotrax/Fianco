@@ -56,6 +56,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         /* ==========================================================================
            TICKELIA PREMIUM 2026 - COMPLEMENTOS DE DISEÑO DE LUJO
@@ -1263,6 +1264,22 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
         </a>
     </div>
 
+    <!-- VER RECIBO MODAL -->
+    <div id="verReciboModal" class="modal-overlay" onclick="cerrarVerReciboModal()">
+        <div class="modal-content" style="max-width:480px; text-align:center;" onclick="event.stopPropagation()">
+            <div style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 8px;">
+                <h3 id="verReciboTitulo" style="margin: 0; font-size:1.15rem; color: var(--primary);">🧾 Ticket de Gasto</h3>
+                <button type="button" onclick="cerrarVerReciboModal()" style="background: none; border: none; color: #FFF; font-size: 1.2rem; cursor: pointer; padding:0;">✕</button>
+            </div>
+            <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius:12px; padding:10px; display:flex; align-items:center; justify-content:center; min-height: 200px; max-height:450px; overflow:hidden; margin-bottom: 15px;">
+                <img id="verReciboImagen" src="" style="max-width:100%; max-height:400px; object-fit:contain; border-radius:8px;">
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+                <button class="btn-cancel" onclick="cerrarVerReciboModal()" style="padding: 8px 18px; font-size: 0.85rem;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST -->
     <div id="toast" class="toast">Mensaje</div>
 
@@ -1283,6 +1300,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
         let aprobacionesData = [];
         let estadisticasData = {};
         let proveedoresData = [];
+        let currentTicketPhotoBase64 = null;
         
         // Paginacion
         let paginaActual = 1;
@@ -1333,11 +1351,93 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
         }
 
         // Camera Logic
+        function extractAmountFromOCR(text) {
+            const lines = text.toLowerCase().split('\n');
+            let possibleAmounts = [];
+
+            // Keywords indicative of total amounts
+            const keywords = ['total', 'importe', 'monto', 'pago', 'neto', 'suma', 'total a pagar', 'total mxn', 'total usd'];
+            
+            // Loop lines to search for matches with keywords
+            for (let line of lines) {
+                for (let kw of keywords) {
+                    if (line.includes(kw)) {
+                        // Look for numbers with decimal parts (e.g. 10.00, 1,250.50, 1.250,50, 399)
+                        // A digit followed optionally by dots/commas and 2 decimals
+                        const matches = line.match(/(?:\$\s*)?(\d+(?:[.,]\d{3})*(?:[.,]\d{2}))(?!\d)/g);
+                        if (matches) {
+                            matches.forEach(m => {
+                                // Strip "$" symbols, spaces, commas if they are thousands separator
+                                let clean = m.replace('$', '').trim();
+                                if (clean.includes(',') && clean.includes('.')) {
+                                    // format: 1,234.56
+                                    if (clean.indexOf(',') < clean.indexOf('.')) {
+                                        clean = clean.replace(/,/g, '');
+                                    } else {
+                                        // format: 1.234,56
+                                        clean = clean.replace(/\./g, '').replace(',', '.');
+                                    }
+                                } else if (clean.includes(',')) {
+                                    // check if it is comma as decimal separator: 125,50
+                                    if (clean.split(',')[1].length === 2) {
+                                        clean = clean.replace(',', '.');
+                                    } else {
+                                        clean = clean.replace(/,/g, '');
+                                    }
+                                }
+                                const val = parseFloat(clean);
+                                if (!isNaN(val) && val > 0) {
+                                    possibleAmounts.push({ val: val, priority: (kw === 'total' || kw === 'total a pagar') ? 3 : (kw === 'importe' || kw === 'monto' ? 2 : 1) });
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (possibleAmounts.length > 0) {
+                // Sort by priority desc, then by value desc (usually total is the highest value in those lines)
+                possibleAmounts.sort((a, b) => b.priority - a.priority || b.val - a.val);
+                return possibleAmounts[0].val;
+            }
+
+            // General fallback: if no keyword line matched, extract all numbers and return the highest value (which is typically the total)
+            const allMatches = text.match(/(?:\$\s*)?(\d+(?:[.,]\d{3})*(?:[.,]\d{2}))(?!\d)/g);
+            if (allMatches) {
+                let maxVal = 0;
+                allMatches.forEach(m => {
+                    let clean = m.replace('$', '').trim();
+                    if (clean.includes(',') && clean.includes('.')) {
+                        if (clean.indexOf(',') < clean.indexOf('.')) {
+                            clean = clean.replace(/,/g, '');
+                        } else {
+                            clean = clean.replace(/\./g, '').replace(',', '.');
+                        }
+                    } else if (clean.includes(',')) {
+                        if (clean.split(',')[1].length === 2) {
+                            clean = clean.replace(',', '.');
+                        } else {
+                            clean = clean.replace(/,/g, '');
+                        }
+                    }
+                    const val = parseFloat(clean);
+                    if (!isNaN(val) && val > maxVal) {
+                        maxVal = val;
+                    }
+                });
+                if (maxVal > 0) return maxVal;
+            }
+
+            return null;
+        }
+
+        // Camera Logic
         function handleTicketPhoto(event) {
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
+                    currentTicketPhotoBase64 = e.target.result;
                     document.getElementById('ticketPreview').src = e.target.result;
                     document.getElementById('ticketPreview').style.display = 'block';
                     document.getElementById('ticketModal').style.display = 'flex';
@@ -1346,16 +1446,57 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                     document.getElementById('ticketFormInputs').style.display = 'none';
                     document.getElementById('btnGuardarTicket').style.display = 'none';
                     
-                    // Simulate OCR Delay
-                    setTimeout(() => {
+                    const fallbackOCR = () => {
                         document.getElementById('ocrLoader').style.display = 'none';
                         document.getElementById('ticketFormInputs').style.display = 'block';
                         document.getElementById('btnGuardarTicket').style.display = 'block';
                         
                         document.getElementById('ticketDesc').value = "Ticket Escaneado";
                         document.getElementById('ticketMonto').value = (Math.random() * 50 + 10).toFixed(2);
-                        showToast("✅ Importe detectado automáticamente");
-                    }, 1800);
+                        showToast("⚠️ Falló OCR. Importe aleatorio sugerido.");
+                    };
+
+                    if (typeof Tesseract !== 'undefined') {
+                        Tesseract.recognize(
+                            e.target.result,
+                            'spa+eng',
+                            { logger: m => console.log("Tesseract:", m.status, (m.progress * 100).toFixed(0) + "%") }
+                        ).then(({ data: { text } }) => {
+                            console.log("OCR Texto Extraído:\n", text);
+                            document.getElementById('ocrLoader').style.display = 'none';
+                            document.getElementById('ticketFormInputs').style.display = 'block';
+                            document.getElementById('btnGuardarTicket').style.display = 'block';
+                            
+                            // Detectar descripción desde las primeras líneas no vacías
+                            const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+                            let detectedDesc = "Ticket Escaneado";
+                            if (lines.length > 0) {
+                                for (let l of lines) {
+                                    if (!l.match(/\d{2,4}[-\/\.]\d{2}[-\/\.]\d{2,4}/) && !l.match(/^\$?\s*\d+[\.,]\d{2}$/) && l.length < 50) {
+                                        detectedDesc = l.charAt(0).toUpperCase() + l.slice(1).toLowerCase();
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            const detectedMonto = extractAmountFromOCR(text);
+                            
+                            document.getElementById('ticketDesc').value = detectedDesc;
+                            if (detectedMonto !== null) {
+                                document.getElementById('ticketMonto').value = detectedMonto.toFixed(2);
+                                showToast("✅ Importe detectado: $" + detectedMonto.toFixed(2));
+                            } else {
+                                document.getElementById('ticketMonto').value = "";
+                                showToast("⚠️ No se detectó importe. Introdúcelo manualmente.");
+                            }
+                        }).catch(err => {
+                            console.error("Error en reconocimiento Tesseract:", err);
+                            fallbackOCR();
+                        });
+                    } else {
+                        console.warn("Tesseract no cargado.");
+                        fallbackOCR();
+                    }
                 }
                 reader.readAsDataURL(file);
             }
@@ -1364,6 +1505,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
         function cerrarModalTicket() {
             document.getElementById('ticketModal').style.display = 'none';
             document.getElementById('cameraInput').value = "";
+            currentTicketPhotoBase64 = null;
         }
 
         async function guardarTicketFromModal() {
@@ -1377,7 +1519,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             const reqTime = performance.now();
             const response = await fetch("api/add_gasto.php", {
                 method: "POST", headers: {"Content-Type":"application/json"},
-                body: JSON.stringify({descripcion: desc, monto: monto, categoria: cat, metodo_pago: 'Efectivo', estado: 'Pendiente'})
+                body: JSON.stringify({descripcion: desc, monto: monto, categoria: cat, metodo_pago: 'Efectivo', estado: 'Pendiente', foto_recibo: currentTicketPhotoBase64})
             });
             const res = await response.json();
             if (res.success) {
@@ -1390,6 +1532,34 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             } else {
                 showToast(res.message || "Error al guardar el ticket");
             }
+        }
+
+        function verRecibo(id) {
+            const g = gastosData.find(x => x.id_gasto === id);
+            if (!g) return showToast("Gasto no encontrado");
+            
+            document.getElementById('verReciboTitulo').innerText = `🧾 Ticket: ${g.descripcion}`;
+            
+            const imgEl = document.getElementById('verReciboImagen');
+            imgEl.src = ""; // Clear source first
+            imgEl.style.display = 'none'; // Hide while loading
+            
+            // Set source to our safe endpoint
+            imgEl.src = `api/get_recibo.php?id=${id}`;
+            imgEl.onload = function() {
+                imgEl.style.display = 'block';
+            };
+            imgEl.onerror = function() {
+                showToast("Error al cargar la imagen del ticket");
+                imgEl.style.display = 'none';
+            };
+            
+            document.getElementById('verReciboModal').style.display = 'flex';
+        }
+
+        function cerrarVerReciboModal() {
+            document.getElementById('verReciboModal').style.display = 'none';
+            document.getElementById('verReciboImagen').src = "";
         }
 
         // Dev Mode Toggle
@@ -2444,6 +2614,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                         <td><span style="font-size:0.85rem; padding:4px 8px; border-radius:6px; background:rgba(255,255,255,0.05); color:var(--text-secondary); border: 1px solid rgba(255,255,255,0.04);">${g.categoria}</span></td>
                         <td style="text-align:right; font-weight:700;">$${g.monto.toFixed(2)}</td>
                         <td style="text-align:center;">
+                            ${g.tiene_foto ? `<button class="btn-icon" onclick="verRecibo(${g.id_gasto})" title="Ver Ticket">📷</button>` : ''}
                             <button class="btn-icon" onclick="abrirEditModal(${g.id_gasto})" title="Editar">✏️</button>
                             <button class="btn-icon" onclick="eliminarGasto(${g.id_gasto})" title="Eliminar">🗑</button>
                         </td>

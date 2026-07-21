@@ -12,7 +12,8 @@ require_once __DIR__ . '/conexion.php';
 $userId = $_SESSION['id_usuario'];
 
 $sql = "SELECT g.id_gasto, g.descripcion, g.monto, g.categoria, g.estado, g.metodo_pago, g.xml_invoice, g.fecha, 
-               g.id_proyecto, p.nombre as proyecto_nombre, g.id_viaje, v.destino as viaje_destino 
+               g.id_proyecto, p.nombre as proyecto_nombre, g.id_viaje, v.destino as viaje_destino,
+               (g.foto_recibo IS NOT NULL) AS tiene_foto 
         FROM gastos g 
         LEFT JOIN proyectos p ON g.id_proyecto = p.id_proyecto 
         LEFT JOIN viajes v ON g.id_viaje = v.id_viaje 
@@ -40,7 +41,8 @@ if ($stmt) {
             'id_proyecto' => $row['id_proyecto'] ? intval($row['id_proyecto']) : null,
             'proyecto_nombre' => $row['proyecto_nombre'] ?? 'General',
             'id_viaje' => $row['id_viaje'] ? intval($row['id_viaje']) : null,
-            'viaje_destino' => $row['viaje_destino'] ?? 'General'
+            'viaje_destino' => $row['viaje_destino'] ?? 'General',
+            'tiene_foto' => (bool)$row['tiene_foto']
         ];
         
         // Sumamos a total gastado solo los gastos que no han sido rechazados
