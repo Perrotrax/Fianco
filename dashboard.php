@@ -484,6 +484,16 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                     <div id="ticketVendorDisplay" style="font-size:0.9rem; font-weight:600; color:var(--text-main); margin-top:2px;">🏬 Ticket Escaneado</div>
                 </div>
 
+                <!-- PRODUCTOS DETECTADOS -->
+                <div id="ticketItemsSection" style="display:none; margin-bottom:14px; background:rgba(0,0,0,0.22); border:1px solid rgba(255,255,255,0.08); border-radius:10px; overflow:hidden;">
+                    <div style="padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted);">Productos detectados</span>
+                        <span id="ticketItemsCount" style="font-size:0.75rem; color:var(--primary); font-weight:700;">0 items</span>
+                    </div>
+                    <div id="ticketItemsList" style="max-height:160px; overflow-y:auto;"></div>
+                    <div id="ticketItemsTotals" style="padding:10px 12px; border-top:1px solid rgba(255,255,255,0.06); font-size:0.78rem; color:var(--text-muted); display:none;"></div>
+                </div>
+
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div class="form-group">
                         <label>Establecimiento / Comercio</label>
@@ -1496,6 +1506,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
         let estadisticasData = {};
         let proveedoresData = [];
         let currentTicketPhotoBase64 = null;
+        let currentTicketScanData = null;
         
         // Paginacion
         let paginaActual = 1;
@@ -1582,6 +1593,141 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
                 processTicketFile(e.dataTransfer.files[0]);
             }
+        }
+
+        function handleTicketPhoto(e) {
+            const file = e.target && e.target.files && e.target.files[0];
+            if (file) processTicketFile(file);
+        }
+
+        function resetTicketScanUI() {
+            currentTicketScanData = null;
+            document.getElementById('ticketMonto').value = "";
+            document.getElementById('ticketComercio').value = "";
+            document.getElementById('ticketDesc').value = "";
+            document.getElementById('ticketItemsSection').style.display = 'none';
+            document.getElementById('ticketItemsList').innerHTML = '';
+            document.getElementById('ticketItemsTotals').style.display = 'none';
+            document.getElementById('ticketItemsCount').innerText = '0 items';
+            actualizarDisplayTicket();
+        }
+
+        function renderTicketItems(scanData) {
+            const section = document.getElementById('ticketItemsSection');
+            const list = document.getElementById('ticketItemsList');
+            const totals = document.getElementById('ticketItemsTotals');
+            const countEl = document.getElementById('ticketItemsCount');
+            const items = (scanData && scanData.items) ? scanData.items : [];
+
+            if (!items.length) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            countEl.innerText = `${items.length} item${items.length === 1 ? '' : 's'}`;
+
+            list.innerHTML = items.map(item => {
+                const qty = item.cantidad || item.qty || 1;
+                const price = item.precio || item.price || 0;
+                const unit = item.precio_unitario || item.unitPrice || price;
+                const name = item.nombre || item.name || 'Producto';
+                return `
+                    <div style="display:grid; grid-template-columns: 1fr auto; gap:8px; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.82rem;">
+                        <div>
+                            <div style="color:var(--text-main); font-weight:600;">${escapeHtml(name)}</div>
+                            <div style="color:var(--text-muted); font-size:0.72rem;">${qty} x $${Number(unit).toFixed(2)}</div>
+                        </div>
+                        <div style="color:var(--primary); font-weight:700; white-space:nowrap;">$${Number(price).toFixed(2)}</div>
+                    </div>
+                `;
+            }).join('');
+
+            const parts = [];
+            if (scanData.subtotal) parts.push(`Subtotal: $${Number(scanData.subtotal).toFixed(2)}`);
+            if (scanData.iva) parts.push(`IVA: $${Number(scanData.iva).toFixed(2)}`);
+            if (scanData.items_sum) parts.push(`Suma productos: $${Number(scanData.items_sum).toFixed(2)}`);
+            if (scanData.monto) parts.push(`Total detectado: $${Number(scanData.monto).toFixed(2)}`);
+
+            if (parts.length) {
+                totals.style.display = 'block';
+                totals.innerHTML = parts.map(p => `<div style="margin-bottom:2px;">${p}</div>`).join('');
+            } else {
+                totals.style.display = 'none';
+            }
+        }
+
+        function applyTicketScanData(scanData) {
+            if (!scanData) return;
+            currentTicketScanData = scanData;
+
+            if (scanData.vendor && scanData.vendor !== 'Ticket Escaneado') {
+                document.getElementById('ticketComercio').value = scanData.vendor;
+            }
+            if (scanData.descripcion) {
+                document.getElementById('ticketDesc').value = scanData.descripcion;
+            }
+            if (scanData.categoria) {
+                document.getElementById('ticketCategoria').value = scanData.categoria;
+            }
+            if (scanData.metodo_pago) {
+                document.getElementById('ticketMetodoPago').value = scanData.metodo_pago;
+            }
+            if (scanData.monto && scanData.monto > 0) {
+                document.getElementById('ticketMonto').value = Number(scanData.monto).toFixed(2);
+            }
+
+            renderTicketItems(scanData);
+            actualizarDisplayTicket();
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function parseTicketFallback(text) {
+            const vendorInfo = extractVendorAndCategoryFromOCR(text);
+            const detectedMonto = extractAmountFromOCR(text);
+            const textLow = text.toLowerCase();
+            let metodoPago = null;
+            if (textLow.includes('tarjeta') || textLow.includes('credit') || textLow.includes('debito') || textLow.includes('visa') || textLow.includes('mastercard')) {
+                metodoPago = 'Tarjeta';
+            } else if (textLow.includes('efectivo') || textLow.includes('cash')) {
+                metodoPago = 'Efectivo';
+            }
+
+            return {
+                vendor: vendorInfo.vendor,
+                categoria: vendorInfo.cat,
+                monto: detectedMonto,
+                subtotal: null,
+                iva: null,
+                metodo_pago: metodoPago,
+                descripcion: vendorInfo.vendor !== 'Ticket Escaneado'
+                    ? `Consumo en ${vendorInfo.vendor}`
+                    : 'Gasto con comprobante',
+                items: [],
+                items_sum: 0
+            };
+        }
+
+        async function analyzeTicketText(ocrText, fileName) {
+            try {
+                const response = await fetch('api/scan_ticket.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ filename: fileName, ocr_text: ocrText })
+                });
+                const res = await response.json();
+                if (res.success) return res;
+            } catch (err) {
+                console.warn('scan_ticket.php fallback:', err);
+            }
+            return parseTicketFallback(ocrText);
         }
 
         // IMAGE PRE-PROCESSING FOR HIGH ACCURACY OCR
@@ -1794,16 +1940,14 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             const reader = new FileReader();
             reader.onload = function(e) {
                 currentTicketPhotoBase64 = e.target.result;
-                
+
                 document.getElementById('ticketModal').style.display = 'flex';
                 document.getElementById('dropzonePrompt').style.display = 'none';
-                
+
                 const preview = document.getElementById('ticketPreview');
                 preview.src = e.target.result;
-                
-                const scannerContainer = document.getElementById('scannerContainer');
-                scannerContainer.style.display = 'block';
 
+                document.getElementById('scannerContainer').style.display = 'block';
                 const laser = document.getElementById('scannerLaser');
                 if (laser) laser.style.display = 'block';
 
@@ -1811,113 +1955,73 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                 document.getElementById('ticketFormInputs').style.display = 'none';
                 document.getElementById('btnGuardarTicket').style.display = 'none';
 
-                // Reset input values
-                document.getElementById('ticketMonto').value = "";
-                document.getElementById('ticketComercio').value = "";
-                document.getElementById('ticketDesc').value = "";
-                actualizarDisplayTicket();
-
+                resetTicketScanUI();
                 popularOpcionesProyectoViajeTicket();
 
-                // Reset camera input so clicking again triggers onchange
                 const camInput = document.getElementById('cameraInput');
                 if (camInput) camInput.value = "";
 
                 let ocrDone = false;
-                const finishOCR = () => {
+                const finishOCR = (scanData) => {
                     if (ocrDone) return;
                     ocrDone = true;
                     if (laser) laser.style.display = 'none';
                     document.getElementById('ocrLoader').style.display = 'none';
                     document.getElementById('ticketFormInputs').style.display = 'block';
                     document.getElementById('btnGuardarTicket').style.display = 'block';
-                };
 
-                // Fallback timer (3.5 seconds max)
-                const ocrTimeout = setTimeout(() => {
-                    finishOCR();
+                    applyTicketScanData(scanData);
+
                     if (!document.getElementById('ticketComercio').value) {
                         document.getElementById('ticketComercio').value = "Ticket Escaneado";
+                    }
+                    if (!document.getElementById('ticketDesc').value) {
                         document.getElementById('ticketDesc').value = "Gasto con comprobante";
                     }
-                }, 3500);
 
-                // 1. Escaneo por API de Servidor (Nombre y Metadatos)
-                fetch('api/scan_ticket.php', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ filename: fileName, image: e.target.result })
-                }).then(r => r.json()).then(res => {
-                    if (res.success) {
-                        if (res.vendor && res.vendor !== 'Ticket Escaneado') {
-                            document.getElementById('ticketComercio').value = res.vendor;
-                            document.getElementById('ticketDesc').value = res.descripcion || `Consumo en ${res.vendor}`;
-                            if (res.categoria) document.getElementById('ticketCategoria').value = res.categoria;
-                        }
-                        if (res.monto && res.monto > 0) {
-                            document.getElementById('ticketMonto').value = res.monto.toFixed(2);
-                        }
-                        actualizarDisplayTicket();
-                    }
-                }).catch(err => console.warn("API scan notice:", err));
+                    const monto = parseFloat(document.getElementById('ticketMonto').value);
+                    const vendor = document.getElementById('ticketComercio').value;
+                    const itemCount = (scanData && scanData.items) ? scanData.items.length : 0;
 
-                // 2. OCR Front-end con Tesseract directo en la imagen original
-                if (typeof Tesseract !== 'undefined') {
-                    Tesseract.recognize(
-                        e.target.result,
-                        'spa',
-                        { logger: m => console.log("Tesseract:", m.status, (m.progress * 100).toFixed(0) + "%") }
-                    ).then(({ data: { text } }) => {
-                        clearTimeout(ocrTimeout);
-                        console.log("OCR Texto Extraído:\n", text);
-                        
-                        const ocrTextEl = document.getElementById('ticketTextoOCR');
-                        if (ocrTextEl) ocrTextEl.innerText = text || "No se detectaron líneas de texto estructurado.";
-
-                        finishOCR();
-
-                        const vendorInfo = extractVendorAndCategoryFromOCR(text);
-                        const detectedMonto = extractAmountFromOCR(text);
-
-                        if (vendorInfo.vendor && vendorInfo.vendor !== 'Ticket Escaneado') {
-                            document.getElementById('ticketComercio').value = vendorInfo.vendor;
-                            document.getElementById('ticketDesc').value = `Consumo en ${vendorInfo.vendor}`;
-                            document.getElementById('ticketCategoria').value = vendorInfo.cat;
-                        }
-
-                        const textLow = text.toLowerCase();
-                        if (textLow.includes('tarjeta') || textLow.includes('credit') || textLow.includes('debito') || textLow.includes('visa') || textLow.includes('mastercard')) {
-                            document.getElementById('ticketMetodoPago').value = 'Tarjeta';
-                        } else if (textLow.includes('efectivo') || textLow.includes('cash')) {
-                            document.getElementById('ticketMetodoPago').value = 'Efectivo';
-                        }
-
-                        if (detectedMonto !== null && detectedMonto > 0) {
-                            document.getElementById('ticketMonto').value = detectedMonto.toFixed(2);
-                            showToast(`✅ Importe detectado: $${detectedMonto.toFixed(2)} (${vendorInfo.vendor})`);
+                    if (!isNaN(monto) && monto > 0) {
+                        if (itemCount > 0) {
+                            showToast(`✅ ${itemCount} producto(s) detectados · Total $${monto.toFixed(2)} (${vendor})`);
                         } else {
-                            const curMonto = document.getElementById('ticketMonto').value;
-                            if (curMonto) {
-                                showToast(`✅ Importe: $${curMonto} (${vendorInfo.vendor})`);
-                            } else {
-                                showToast(`ℹ️ Ingresa el monto si no fue detectado automáticamente.`);
-                            }
+                            showToast(`✅ Importe detectado: $${monto.toFixed(2)} (${vendor})`);
                         }
-                        actualizarDisplayTicket();
-                    }).catch(err => {
-                        clearTimeout(ocrTimeout);
-                        console.error("Tesseract error:", err);
-                        finishOCR();
-                        if (!document.getElementById('ticketComercio').value) {
-                            document.getElementById('ticketComercio').value = "Ticket Escaneado";
-                            document.getElementById('ticketDesc').value = "Gasto con comprobante";
-                        }
-                        actualizarDisplayTicket();
+                    } else {
+                        showToast('ℹ️ Revisa comercio, productos y total del ticket.');
+                    }
+                };
+
+                const ocrTimeout = setTimeout(() => {
+                    finishOCR(parseTicketFallback(''));
+                }, 20000);
+
+                const runAnalysis = async (ocrText) => {
+                    clearTimeout(ocrTimeout);
+                    const scanData = await analyzeTicketText(ocrText, fileName);
+                    finishOCR(scanData);
+                };
+
+                if (typeof Tesseract !== 'undefined') {
+                    preprocessImageForOCR(e.target.result, function(processedImage) {
+                        Tesseract.recognize(
+                            processedImage,
+                            'spa',
+                            { logger: m => console.log("Tesseract:", m.status, (m.progress * 100).toFixed(0) + "%") }
+                        ).then(({ data: { text } }) => {
+                            console.log("OCR Texto Extraído:\n", text);
+                            const ocrTextEl = document.getElementById('ticketTextoOCR');
+                            if (ocrTextEl) ocrTextEl.innerText = text || "No se detectaron líneas de texto estructurado.";
+                            runAnalysis(text || '');
+                        }).catch(err => {
+                            console.error("Tesseract error:", err);
+                            runAnalysis('');
+                        });
                     });
                 } else {
-                    clearTimeout(ocrTimeout);
-                    finishOCR();
-                    actualizarDisplayTicket();
+                    analyzeTicketText('', fileName).then(finishOCR);
                 }
             };
             reader.readAsDataURL(file);
@@ -1984,6 +2088,12 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             if (img) img.style.transform = 'rotate(0deg)';
             const camInput = document.getElementById('cameraInput');
             if (camInput) camInput.value = "";
+            document.getElementById('dropzonePrompt').style.display = 'flex';
+            document.getElementById('scannerContainer').style.display = 'none';
+            const laser = document.getElementById('scannerLaser');
+            if (laser) laser.style.display = 'none';
+            currentTicketPhotoBase64 = null;
+            currentTicketScanData = null;
         }
 
         function popularOpcionesProyectoViajeTicket() {
@@ -2017,16 +2127,6 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             }
         }
 
-        function cerrarModalTicket() {
-            document.getElementById('ticketModal').style.display = 'none';
-            document.getElementById('cameraInput').value = "";
-            document.getElementById('dropzonePrompt').style.display = 'flex';
-            document.getElementById('scannerContainer').style.display = 'none';
-            const laser = document.getElementById('scannerLaser');
-            if (laser) laser.style.display = 'none';
-            currentTicketPhotoBase64 = null;
-        }
-
         async function guardarTicketFromModal() {
             const comercio = document.getElementById('ticketComercio').value.trim();
             let desc = document.getElementById('ticketDesc').value.trim();
@@ -2053,7 +2153,15 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                 id_proyecto: id_proyecto,
                 id_viaje: id_viaje,
                 estado: estadoVal,
-                foto_recibo: currentTicketPhotoBase64
+                foto_recibo: currentTicketPhotoBase64,
+                detalle_ticket: currentTicketScanData ? {
+                    vendor: document.getElementById('ticketComercio').value.trim() || currentTicketScanData.vendor,
+                    monto: monto,
+                    subtotal: currentTicketScanData.subtotal || null,
+                    iva: currentTicketScanData.iva || null,
+                    items: currentTicketScanData.items || [],
+                    items_sum: currentTicketScanData.items_sum || null
+                } : null
             };
 
             const reqTime = performance.now();
@@ -2094,6 +2202,27 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
             const detallesEl = document.getElementById('verReciboDetalles');
             if (detallesEl) {
                 detallesEl.style.display = 'block';
+                let itemsHtml = '';
+                if (g.detalle_ticket) {
+                    try {
+                        const det = typeof g.detalle_ticket === 'string' ? JSON.parse(g.detalle_ticket) : g.detalle_ticket;
+                        if (det && Array.isArray(det.items) && det.items.length) {
+                            itemsHtml = `
+                                <div style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:8px;">
+                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px; font-weight:700;">PRODUCTOS</div>
+                                    ${det.items.map(item => `
+                                        <div style="display:flex; justify-content:space-between; gap:8px; font-size:0.78rem; margin-bottom:4px;">
+                                            <span>${escapeHtml(item.nombre || item.name || 'Producto')} <span style="color:var(--text-muted);">(${(item.cantidad || item.qty || 1)}x)</span></span>
+                                            <span style="color:var(--primary); font-weight:700;">$${Number(item.precio || item.price || 0).toFixed(2)}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        }
+                    } catch (e) {
+                        console.warn('detalle_ticket parse error', e);
+                    }
+                }
                 detallesEl.innerHTML = `
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
                         <div><strong>Importe:</strong> <span style="color:var(--primary); font-weight:700;">$${g.monto.toFixed(2)}</span></div>
@@ -2102,6 +2231,7 @@ $presupuestoMensual = isset($user['presupuesto']) ? floatval($user['presupuesto'
                         <div><strong>Estado:</strong> <span style="color:${g.estado==='Aprobado'?'#34d399':g.estado==='Rechazado'?'#f87171':'#fbbf24'}">${g.estado}</span></div>
                         <div><strong>Pago:</strong> ${g.metodo_pago || 'Efectivo'}</div>
                     </div>
+                    ${itemsHtml}
                 `;
             }
 

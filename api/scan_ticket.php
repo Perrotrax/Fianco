@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/api_common.php';
+require_once __DIR__ . '/ticket_parser.php';
 session_start();
 header('Content-Type: application/json');
 
@@ -8,87 +9,37 @@ if (!isset($_SESSION['id_usuario'])) {
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$filename = isset($input['filename']) ? trim($input['filename']) : '';
-$image_base64 = isset($input['image']) ? trim($input['image']) : '';
+$filename = isset($input['filename']) ? trim((string) $input['filename']) : '';
+$ocrText = isset($input['ocr_text']) ? trim((string) $input['ocr_text']) : '';
 
-$detectedVendor = 'Ticket Escaneado';
-$detectedMonto = null;
-$detectedCategoria = 'Comida';
+$filenameData = ticket_detect_from_filename($filename);
 
-// 1. Análisis por Nombre de Archivo
-if (!empty($filename)) {
-    $fnLower = strtolower($filename);
-
-    // Detección de Vendedor por nombre de archivo
-    $vendors = [
-        'zara' => ['ZARA', 'Otros'],
-        'pull' => ['ZARA / Pull&Bear', 'Otros'],
-        'bershka' => ['Bershka', 'Otros'],
-        'stradivarius' => ['Stradivarius', 'Otros'],
-        'mango' => ['Mango', 'Otros'],
-        'hm' => ['H&M', 'Otros'],
-        'liverpool' => ['Liverpool', 'Otros'],
-        'sears' => ['Sears', 'Otros'],
-        'suburbia' => ['Suburbia', 'Otros'],
-        'coppel' => ['Coppel', 'Otros'],
-        'oxxo' => ['OXXO', 'Comida'],
-        '7eleven' => ['7-Eleven', 'Comida'],
-        'seven' => ['7-Eleven', 'Comida'],
-        'walmart' => ['Walmart', 'Comida'],
-        'aurrera' => ['Bodega Aurrerá', 'Comida'],
-        'soriana' => ['Soriana', 'Comida'],
-        'chedraui' => ['Chedraui', 'Comida'],
-        'costco' => ['Costco', 'Comida'],
-        'sams' => ['Sam\'s Club', 'Comida'],
-        'pemex' => ['Pemex', 'Transporte'],
-        'shell' => ['Shell', 'Transporte'],
-        'bp' => ['BP Gasolinera', 'Transporte'],
-        'g500' => ['G500', 'Transporte'],
-        'mobil' => ['Mobil', 'Transporte'],
-        'gasolina' => ['Gasolinera', 'Transporte'],
-        'gas' => ['Gasolinera', 'Transporte'],
-        'uber' => ['Uber', 'Transporte'],
-        'didi' => ['DiDi', 'Transporte'],
-        'mcdonald' => ['McDonald\'s', 'Comida'],
-        'burger' => ['Burger King', 'Comida'],
-        'starbucks' => ['Starbucks', 'Comida'],
-        'domino' => ['Domino\'s Pizza', 'Comida'],
-        'subway' => ['Subway', 'Comida'],
-        'kfc' => ['KFC', 'Comida'],
-        'tacos' => ['Taquería / Comida', 'Comida'],
-        'restaurante' => ['Restaurante', 'Comida'],
-        'cafe' => ['Cafetería', 'Comida'],
-        'farmacia' => ['Farmacia', 'Servicios'],
-        'telmex' => ['Telmex', 'Servicios'],
-        'cfe' => ['CFE', 'Servicios'],
-        'hotel' => ['Hotel', 'Hogar']
+if ($ocrText !== '') {
+    $ocrData = ticket_parse_ocr_text($ocrText);
+    $result = ticket_merge_scan_results($filenameData, $ocrData);
+} else {
+    $result = [
+        'vendor' => $filenameData['vendor'],
+        'categoria' => $filenameData['categoria'],
+        'monto' => $filenameData['monto'],
+        'subtotal' => null,
+        'iva' => null,
+        'metodo_pago' => null,
+        'descripcion' => 'Consumo en ' . $filenameData['vendor'],
+        'items' => [],
+        'items_sum' => 0,
     ];
-
-    foreach ($vendors as $key => $data) {
-        if (strpos($fnLower, $key) !== false) {
-            $detectedVendor = $data[0];
-            $detectedCategoria = $data[1];
-            break;
-        }
-    }
-
-    // Detección de Monto en Nombre de Archivo (ej. gasto_150.50.jpg, total_500.png)
-    // Ignorar patrones numéricos estándar de cámara (IMG_2500, DSC_1234, PXL_5678, Screenshot)
-    if (!preg_match('/^(?:img|dsc|pxl|win|screenshot|foto|capture|cam|recibo|ticket)[_\-\s]*\d+/i', $fnLower)) {
-        if (preg_match('/(?:monto|total|price|gasto|_|\$)?(\d+(?:[\._]\d{2}))(?:\.jpg|\.png|\.jpeg|\.webp|\.pdf|$)/i', $fnLower, $matches)) {
-            $val = floatval(str_replace('_', '.', $matches[1]));
-            if ($val > 0 && $val < 100000 && $val != 2026 && $val != 2025 && $val != 2024) {
-                $detectedMonto = round($val, 2);
-            }
-        }
-    }
 }
 
 api_json([
     'success' => true,
-    'vendor' => $detectedVendor,
-    'monto' => $detectedMonto,
-    'categoria' => $detectedCategoria,
-    'descripcion' => "Consumo en $detectedVendor"
+    'vendor' => $result['vendor'],
+    'monto' => $result['monto'],
+    'subtotal' => $result['subtotal'],
+    'iva' => $result['iva'],
+    'categoria' => $result['categoria'],
+    'metodo_pago' => $result['metodo_pago'],
+    'descripcion' => $result['descripcion'],
+    'items' => $result['items'],
+    'items_sum' => $result['items_sum'],
 ]);
-?>

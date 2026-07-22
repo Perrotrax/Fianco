@@ -11,7 +11,7 @@ require_once __DIR__ . '/conexion.php';
 
 $userId = $_SESSION['id_usuario'];
 
-$sql = "SELECT g.id_gasto, g.descripcion, g.monto, g.categoria, g.estado, g.metodo_pago, g.xml_invoice, g.fecha, 
+$sql = "SELECT g.id_gasto, g.descripcion, g.monto, g.categoria, g.estado, g.metodo_pago, g.xml_invoice, g.detalle_ticket, g.fecha, 
                g.id_proyecto, p.nombre as proyecto_nombre, g.id_viaje, v.destino as viaje_destino,
                (g.foto_recibo IS NOT NULL) AS tiene_foto 
         FROM gastos g 
@@ -37,6 +37,7 @@ if ($stmt) {
             'estado' => $row['estado'],
             'metodo_pago' => $row['metodo_pago'],
             'xml_invoice' => $row['xml_invoice'],
+            'detalle_ticket' => $row['detalle_ticket'] ?? null,
             'fecha' => $row['fecha'],
             'id_proyecto' => $row['id_proyecto'] ? intval($row['id_proyecto']) : null,
             'proyecto_nombre' => $row['proyecto_nombre'] ?? 'General',

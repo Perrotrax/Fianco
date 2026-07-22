@@ -57,6 +57,18 @@ if ($res->num_rows === 0) {
     $msgs[] = "ℹ️ Tabla proveedores ya existe";
 }
 
+// 4. Add detalle_ticket to gastos
+$res = $conn->query("SHOW COLUMNS FROM gastos LIKE 'detalle_ticket'");
+if ($res->num_rows === 0) {
+    if ($conn->query("ALTER TABLE gastos ADD COLUMN detalle_ticket TEXT NULL AFTER metodo_pago")) {
+        $msgs[] = "✅ Columna detalle_ticket agregada a gastos";
+    } else {
+        $msgs[] = "❌ Error agregando detalle_ticket: " . $conn->error; $ok = false;
+    }
+} else {
+    $msgs[] = "ℹ️ Columna detalle_ticket ya existe en gastos";
+}
+
 echo "<h2 style='font-family:monospace;'>Migración " . ($ok ? "✅ Exitosa" : "⚠️ Con errores") . "</h2>";
 echo "<ul style='font-family:monospace;'>";
 foreach ($msgs as $m) echo "<li>$m</li>";
